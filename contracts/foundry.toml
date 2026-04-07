@@ -1,0 +1,44 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc_version = "0.8.25"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+evm_version = "paris"
+remappings = ["forge-std/=lib/forge-std/src/",
+  "@openzeppelin/=lib/openzeppelin-contracts/"
+]
+
+
+# Fuzz configuration
+[profile.default.fuzz]
+runs = 1000
+max_test_rejects = 65536
+seed = "0x1234"
+dictionary_weight = 40
+
+
+# Invariant configuration
+[profile.default.invariant]
+runs = 256
+depth = 15
+fail_on_revert = false
+
+# CI profile — more fuzz runs
+[profile.ci]
+fuzz = { runs = 10000 }
+invariant = { runs = 512 }
+
+# Formatting
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+multiline_func_header = "params_first"
+quote_style = "double"
+number_underscore = "thousands"
