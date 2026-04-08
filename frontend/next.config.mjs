@@ -1,18 +1,22 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
 
     webpack: (config) => {
-        // MetaMask SDK imports React Native's async-storage in browser builds.
-        // Setting alias to `false` tells webpack to return an empty module — no
-        // file needed, no network request, no error.
+        // MetaMask SDK pulls in React Native's async-storage which doesn't
+        // exist in a browser/Node build. Alias it to our no-op stub.
         config.resolve.alias = {
             ...config.resolve.alias,
-            "@react-native-async-storage/async-storage": false,
+            "@react-native-async-storage/async-storage":
+                require.resolve("./src/mocks/async-storage-mock.cjs"),
         };
 
-        // pino-pretty / lokijs / encoding are optional CLI-only deps pulled in
-        // by WalletConnect. Marking them external skips bundling entirely.
+        // pino-pretty + lokijs + encoding are optional deps used only in
+        // React Native / CLI environments. Mark them external so webpack
+        // skips bundling them entirely.
         config.externals = [
             ...(config.externals ?? []),
             "pino-pretty",

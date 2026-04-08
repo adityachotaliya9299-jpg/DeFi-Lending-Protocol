@@ -1,0 +1,58 @@
+specVersion: 1.0.0
+description: >
+  DeFi Lending Protocol — indexes all deposits, borrows, repayments,
+  withdrawals, liquidations, and interest accrual events.
+repository: https://github.com/your-username/defi-lending-protocol
+
+schema:
+  file: ./schema.graphql
+
+# ── Data sources ──────────────────────────────────────────────────────────────
+
+dataSources:
+  # ── LendingPool ─────────────────────────────────────────────────────────────
+  - kind: ethereum
+    name: LendingPool
+    network: sepolia        
+    source:
+      address: "0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0" 
+      abi: LendingPool
+      startBlock: 10610131           
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/lendingPool.ts
+      abis:
+        - name: LendingPool
+          file: ./abis/LendingPool.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      entities:
+        - Protocol
+        - Market
+        - Account
+        - Position
+        - Deposit
+        - Withdraw
+        - Borrow
+        - Repay
+        - Liquidation
+        - InterestSnapshot
+        - DailyMarketSnapshot
+        - DailyProtocolSnapshot
+      eventHandlers:
+        - event: Deposit(indexed address,indexed address,uint256)
+          handler: handleDeposit
+        - event: Withdraw(indexed address,indexed address,uint256)
+          handler: handleWithdraw
+        - event: Borrow(indexed address,indexed address,uint256)
+          handler: handleBorrow
+        - event: Repay(indexed address,indexed address,uint256,indexed address)
+          handler: handleRepay
+        - event: Liquidation(indexed address,indexed address,indexed address,uint256,uint256,address)
+          handler: handleLiquidation
+        - event: InterestAccrued(indexed address,uint256,uint256)
+          handler: handleInterestAccrued
+        - event: AssetInitialised(indexed address,indexed address)
+          handler: handleAssetInitialised

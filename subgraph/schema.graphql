@@ -1,0 +1,227 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  DeFi Lending Protocol — The Graph Schema
+#  Entities track every on-chain event so the frontend never needs to iterate
+#  over historic logs itself.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Global protocol snapshot ─────────────────────────────────────────────────
+
+type Protocol @entity {
+  id: ID!                          # always "1"
+  totalDepositUsd: BigDecimal!
+  totalBorrowUsd:  BigDecimal!
+  totalReserveUsd: BigDecimal!
+  cumulativeLiquidations: Int!
+  assetCount: Int!
+  updatedAt: BigInt!
+}
+
+# ── Per-asset market state ────────────────────────────────────────────────────
+
+type Market @entity {
+  id: ID!                          # asset address
+  asset: String!
+  symbol: String!
+  decimals: Int!
+
+  # Reserve state (mirrors ReserveData in the contract)
+  liquidityIndex:      BigDecimal!
+  borrowIndex:         BigDecimal!
+  totalScaledDeposits: BigDecimal!
+  totalScaledBorrows:  BigDecimal!
+  lastUpdateTimestamp: BigInt!
+
+  # Derived totals
+  totalDepositUsd:     BigDecimal!
+  totalBorrowUsd:      BigDecimal!
+  utilizationRate:     BigDecimal!   # 0.0 – 1.0
+
+  # Risk params
+  ltv:                  Int!
+  liquidationThreshold: Int!
+  liquidationBonus:     Int!
+  reserveFactor:        Int!
+
+  # Historical
+  depositCount:     Int!
+  borrowCount:      Int!
+  repayCount:       Int!
+  liquidationCount: Int!
+
+  deposits:     [Deposit!]!     @derivedFrom(field: "market")
+  borrows:      [Borrow!]!      @derivedFrom(field: "market")
+  repays:       [Repay!]!       @derivedFrom(field: "market")
+  liquidations: [Liquidation!]! @derivedFrom(field: "market")
+}
+
+# ── Per-user account ──────────────────────────────────────────────────────────
+
+type Account @entity {
+  id: ID!                          # user address
+
+  # Aggregate USD totals (WAD values from events)
+  totalDepositUsd:  BigDecimal!
+  totalBorrowUsd:   BigDecimal!
+  healthFactor:     BigDecimal!    # stored as plain decimal (e.g. 1.42)
+
+  # Per-asset positions
+  positions: [Position!]! @derivedFrom(field: "account")
+
+  # Activity counts
+  depositCount:     Int!
+  borrowCount:      Int!
+  repayCount:       Int!
+  liquidationCount: Int!           # times this account was liquidated
+  liquidatorCount:  Int!           # times this account liquidated others
+
+  # Event history
+  deposits:         [Deposit!]!     @derivedFrom(field: "account")
+  borrows:          [Borrow!]!      @derivedFrom(field: "account")
+  repays:           [Repay!]!       @derivedFrom(field: "account")
+  liquidatedEvents: [Liquidation!]! @derivedFrom(field: "borrower")
+  liquidatorEvents: [Liquidation!]! @derivedFrom(field: "liquidator")
+
+  firstSeenAt: BigInt!
+  lastSeenAt:  BigInt!
+}
+
+# ── Per-user per-asset position ───────────────────────────────────────────────
+
+type Position @entity {
+  id: ID!                          # user-asset
+
+  account: Account!
+  market:  Market!
+  asset:   String!
+
+  # Scaled balances (divide by index to get current value)
+  scaledDepositBalance: BigDecimal!
+  scaledBorrowBalance:  BigDecimal!
+
+  # Convenience: actual current amounts (approximate — snapshotted at last event)
+  currentDepositAmount: BigDecimal!
+  currentBorrowAmount:  BigDecimal!
+
+  updatedAt: BigInt!
+}
+
+# ── Individual events ─────────────────────────────────────────────────────────
+
+type Deposit @entity(immutable: true) {
+  id: ID!                          # txHash-logIndex
+
+  account:     Account!
+  market:      Market!
+  asset:       String!
+  amount:      BigDecimal!
+  amountUsd:   BigDecimal!
+
+  blockNumber: BigInt!
+  timestamp:   BigInt!
+  txHash:      String!
+}
+
+type Withdraw @entity(immutable: true) {
+  id: ID!
+
+  account:     Account!
+  market:      Market!
+  asset:       String!
+  amount:      BigDecimal!
+  amountUsd:   BigDecimal!
+
+  blockNumber: BigInt!
+  timestamp:   BigInt!
+  txHash:      String!
+}
+
+type Borrow @entity(immutable: true) {
+  id: ID!
+
+  account:     Account!
+  market:      Market!
+  asset:       String!
+  amount:      BigDecimal!
+  amountUsd:   BigDecimal!
+
+  blockNumber: BigInt!
+  timestamp:   BigInt!
+  txHash:      String!
+}
+
+type Repay @entity(immutable: true) {
+  id: ID!
+
+  account:     Account!
+  market:      Market!
+  asset:       String!
+  amount:      BigDecimal!
+  amountUsd:   BigDecimal!
+  repayer:     String!
+
+  blockNumber: BigInt!
+  timestamp:   BigInt!
+  txHash:      String!
+}
+
+type Liquidation @entity(immutable: true) {
+  id: ID!
+
+  borrower:        Account!
+  liquidator:      Account!
+  market:          Market!          # debt market
+
+  debtAsset:       String!
+  collateralAsset: String!
+  debtRepaid:      BigDecimal!
+  debtRepaidUsd:   BigDecimal!
+  collateralSeized: BigDecimal!
+  collateralSeizedUsd: BigDecimal!
+  profit:          BigDecimal!      # collateralSeizedUsd - debtRepaidUsd
+
+  blockNumber: BigInt!
+  timestamp:   BigInt!
+  txHash:      String!
+}
+
+# ── Interest accrual snapshots (for APY charts) ────────────────────────────────
+
+type InterestSnapshot @entity(immutable: true) {
+  id: ID!                          # market-blockNumber
+
+  market:         Market!
+  liquidityIndex: BigDecimal!
+  borrowIndex:    BigDecimal!
+
+  # Annualised rates derived from index growth since last snapshot
+  supplyApy: BigDecimal!
+  borrowApy: BigDecimal!
+
+  blockNumber: BigInt!
+  timestamp:   BigInt!
+}
+
+# ── Daily market snapshots (for TVL charts) ───────────────────────────────────
+
+type DailyMarketSnapshot @entity {
+  id: ID!                          # market-date (YYYY-MM-DD)
+
+  market:          Market!
+  date:            Int!            # Unix day (timestamp / 86400)
+  totalDepositUsd: BigDecimal!
+  totalBorrowUsd:  BigDecimal!
+  utilizationRate: BigDecimal!
+  supplyApy:       BigDecimal!
+  borrowApy:       BigDecimal!
+}
+
+type DailyProtocolSnapshot @entity {
+  id: ID!                          # date (YYYY-MM-DD)
+  date:            Int!
+  totalDepositUsd: BigDecimal!
+  totalBorrowUsd:  BigDecimal!
+  dailyDepositUsd: BigDecimal!
+  dailyBorrowUsd:  BigDecimal!
+  dailyLiquidationUsd: BigDecimal!
+  activeUsers:     Int!
+}
