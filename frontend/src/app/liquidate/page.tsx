@@ -1,237 +1,246 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
 import { parseUnits } from "viem";
 import { LENDING_POOL_ABI, LIQUIDATION_ENGINE_ABI, ERC20_ABI } from "@/constants/abis";
 import { getAddresses } from "@/constants/addresses";
 import { SUPPORTED_ASSETS } from "@/constants/assets";
-import { formatHealthFactor, healthFactorColor, formatUsd, shortenAddress } from "@/lib/format";
-import { useReadContract } from "wagmi";
+import { formatHealthFactor, formatUsd, shortenAddress } from "@/lib/format";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 
-// ── Liquidation card for a single address ────────────────────────────────────
 function LiquidationCard({ borrower }: { borrower: `0x${string}` }) {
   const chainId = useChainId();
-  const [debtAsset, setDebtAsset]   = useState(SUPPORTED_ASSETS[2].symbol); // USDC
-  const [collAsset, setCollAsset]   = useState(SUPPORTED_ASSETS[0].symbol); // WETH
-  const [amount, setAmount]         = useState("");
+  const [debtAsset, setDebtAsset] = useState(SUPPORTED_ASSETS[1].symbol);
+  const [collAsset, setCollAsset] = useState(SUPPORTED_ASSETS[0].symbol);
+  const [amount, setAmount]       = useState("");
 
   let engineAddr: `0x${string}` = "0x0";
   let poolAddr:   `0x${string}` = "0x0";
   try {
-    const addrs = getAddresses(chainId);
-    engineAddr  = addrs.LIQUIDATION_ENGINE;
-    poolAddr    = addrs.LENDING_POOL;
+    const a = getAddresses(chainId);
+    engineAddr = a.LIQUIDATION_ENGINE;
+    poolAddr   = a.LENDING_POOL;
   } catch {}
 
   const { data: liqData } = useReadContract({
-    address: engineAddr,
-    abi:     LIQUIDATION_ENGINE_ABI,
-    functionName: "getLiquidationData",
-    args:    [borrower],
-    query:   { enabled: engineAddr !== "0x0" },
+    address: engineAddr, abi: LIQUIDATION_ENGINE_ABI, functionName: "getLiquidationData",
+    args: [borrower], query: { enabled: engineAddr !== "0x0" },
   });
 
   const { writeContract, data: txHash } = useWriteContract();
   const { isLoading: isPending } = useWaitForTransactionReceipt({ hash: txHash });
 
-  if (!liqData) return null;
-  const [totalColl, totalDebt, hf, , liquidatable] = liqData;
-  if (!liquidatable) return null;
+  if (!liqData) return (
+    <div className="card p-6 text-center">
+      <div className="text-2xl mb-2" style={{ opacity: 0.4 }}>◎</div>
+      <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading position data…</p>
+    </div>
+  );
 
-  const debtAssetInfo = SUPPORTED_ASSETS.find(a => a.symbol === debtAsset)!;
+  const [totalColl, totalDebt, hf, , liquidatable] = liqData;
+  const hfNum = Number(hf) / 1e18;
+
+  const hfColor = hfNum < 1 ? "#ef4444" : hfNum < 1.2 ? "#f59e0b" : "#10b981";
 
   const handleLiquidate = () => {
     if (!amount) return;
-    const debtAddr = (() => {
-      try {
-        const addrs = getAddresses(chainId);
-        return (addrs[debtAsset as keyof typeof addrs] as `0x${string}`) ?? "0x0";
-      } catch { return "0x0" as `0x${string}`; }
-    })();
-    const collAddr = (() => {
-      try {
-        const addrs = getAddresses(chainId);
-        return (addrs[collAsset as keyof typeof addrs] as `0x${string}`) ?? "0x0";
-      } catch { return "0x0" as `0x${string}`; }
-    })();
-
-    const parsedAmount = parseUnits(amount, debtAssetInfo.decimals);
-
-    // Approve then liquidate
-    writeContract({
-      address: debtAddr,
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [poolAddr, parsedAmount],
-    });
+    const debtInfo = SUPPORTED_ASSETS.find(a => a.symbol === debtAsset)!;
+    let debtAddr: `0x${string}` = "0x0";
+    let collAddr: `0x${string}` = "0x0";
+    try {
+      const addrs = getAddresses(chainId);
+      debtAddr = (addrs[debtAsset as keyof typeof addrs] as `0x${string}`) ?? "0x0";
+      collAddr = (addrs[collAsset as keyof typeof addrs] as `0x${string}`) ?? "0x0";
+    } catch {}
+    const parsed = parseUnits(amount, debtInfo.decimals);
+    writeContract({ address: debtAddr, abi: ERC20_ABI, functionName: "approve", args: [poolAddr, parsed] });
   };
 
   return (
-    <div className="rounded-2xl border border-red-900/50 bg-slate-900 p-5 shadow-lg">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs text-slate-500 mb-1">Borrower</p>
-          <p className="font-mono text-sm text-white">{shortenAddress(borrower)}</p>
-        </div>
-        <span className="rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-400 ring-1 ring-red-500/30">
-          LIQUIDATABLE
-        </span>
-      </div>
+    <div className="card p-6 reveal reveal-scale"
+      style={{ borderColor: liquidatable ? "rgba(239,68,68,0.3)" : "var(--border)" }}>
 
-      <div className="mb-4 grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-lg bg-slate-800 p-3">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Collateral</p>
-          <p className="mt-1 font-bold text-white text-sm">{formatUsd(totalColl)}</p>
-        </div>
-        <div className="rounded-lg bg-slate-800 p-3">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Debt</p>
-          <p className="mt-1 font-bold text-white text-sm">{formatUsd(totalDebt)}</p>
-        </div>
-        <div className="rounded-lg bg-slate-800 p-3">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Health Factor</p>
-          <p className={`mt-1 font-bold text-sm ${healthFactorColor(hf)}`}>
-            {formatHealthFactor(hf)}
+      {/* Header */}
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
+            Borrower
+          </p>
+          <p className="num text-sm" style={{ color: "var(--text-primary)", wordBreak: "break-all" }}>
+            {shortenAddress(borrower)}
           </p>
         </div>
+        {liquidatable ? (
+          <span className="badge badge-red">LIQUIDATABLE</span>
+        ) : (
+          <span className="badge badge-green">HEALTHY</span>
+        )}
       </div>
 
-      <div className="mb-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Debt asset to repay</label>
-            <select
-              value={debtAsset}
-              onChange={e => setDebtAsset(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-            >
-              {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Collateral to receive</label>
-            <select
-              value={collAsset}
-              onChange={e => setCollAsset(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-            >
-              {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-400">Amount to repay</label>
-          <input
-            type="number"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            placeholder={`0.00 ${debtAsset}`}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-600 outline-none focus:border-red-500"
-          />
-        </div>
-      </div>
-
-      <div className="mb-3 rounded-lg bg-emerald-900/20 p-3 text-xs text-emerald-400 ring-1 ring-emerald-800/50">
-        💰 Liquidators earn an 8% bonus on seized collateral
-      </div>
-
-      <button
-        onClick={handleLiquidate}
-        disabled={isPending || !amount}
-        className="w-full rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-500 transition disabled:opacity-50"
-      >
-        {isPending ? "Processing…" : "Liquidate Position"}
-      </button>
-    </div>
-  );
-}
-
-// ── Liquidate page ────────────────────────────────────────────────────────────
-export default function LiquidatePage() {
-  const { isConnected } = useAccount();
-  const [manualAddr, setManualAddr] = useState("");
-  const [targets, setTargets]       = useState<`0x${string}`[]>([]);
-
-  const addTarget = () => {
-    const addr = manualAddr.trim() as `0x${string}`;
-    if (addr.startsWith("0x") && addr.length === 42 && !targets.includes(addr)) {
-      setTargets(prev => [...prev, addr]);
-      setManualAddr("");
-    }
-  };
-
-  if (!isConnected) {
-    return (
-      <main className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <p className="text-4xl mb-3">⚡</p>
-          <p className="text-slate-400">Connect your wallet to liquidate positions.</p>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="mx-auto max-w-7xl px-4 py-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Liquidations</h1>
-        <p className="mt-1 text-slate-400">
-          Repay undercollateralised positions and earn an 8% liquidation bonus.
-        </p>
-      </div>
-
-      {/* How it works */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* Position stats */}
+      <div className="grid grid-cols-3 gap-2 mb-5">
         {[
-          { step: "1", title: "Find a position",   body: "A position is liquidatable when its health factor drops below 1.0." },
-          { step: "2", title: "Repay their debt",  body: "You repay up to 50% of the borrower's outstanding debt." },
-          { step: "3", title: "Receive collateral", body: "You receive the equivalent collateral plus an 8% bonus." },
-        ].map(({ step, title, body }) => (
-          <div key={step} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-            <span className="text-2xl font-black text-blue-500">{step}</span>
-            <p className="mt-2 font-semibold text-white">{title}</p>
-            <p className="mt-1 text-sm text-slate-400">{body}</p>
+          { label: "Collateral", value: formatUsd(totalColl), color: "var(--cyan)" },
+          { label: "Debt",       value: formatUsd(totalDebt), color: "#f87171" },
+          { label: "HF",         value: formatHealthFactor(hf), color: hfColor },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="rounded-xl p-3 text-center"
+            style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
+              {label}
+            </p>
+            <p className="num text-sm" style={{ color }}>{value}</p>
           </div>
         ))}
       </div>
 
-      {/* Manual address lookup */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="mb-4 font-semibold text-white">Enter borrower address</h2>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={manualAddr}
-            onChange={e => setManualAddr(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addTarget()}
-            placeholder="0x..."
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500"
-          />
-          <button
-            onClick={addTarget}
-            className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-500 transition"
-          >
-            Check
+      {liquidatable && (
+        <>
+          {/* Controls */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+                Repay asset
+              </label>
+              <select value={debtAsset} onChange={e => setDebtAsset(e.target.value)}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+                Receive collateral
+              </label>
+              <select value={collAsset} onChange={e => setCollAsset(e.target.value)}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+            placeholder={`Amount of ${debtAsset} to repay`}
+            className="input-field mb-4" style={{ fontSize: 14, padding: "10px 14px" }} />
+
+          <div className="rounded-lg px-3 py-2.5 mb-4 text-sm flex items-center gap-2"
+            style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399" }}>
+            <span>💰</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+              Liquidators receive 8% bonus on seized collateral
+            </span>
+          </div>
+
+          <button onClick={handleLiquidate} disabled={isPending || !amount}
+            className="w-full rounded-xl py-3 font-bold text-sm transition-all"
+            style={{
+              fontFamily: "var(--font-display)",
+              background: isPending || !amount ? "rgba(239,68,68,0.3)" : "#ef4444",
+              color: "#fff",
+              border: "none",
+              cursor: isPending || !amount ? "not-allowed" : "pointer",
+            }}>
+            {isPending ? "Processing…" : "Execute Liquidation"}
           </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function LiquidatePage() {
+  useScrollAnimation();
+  const { isConnected } = useAccount();
+  const [input, setInput]   = useState("");
+  const [targets, setTargets] = useState<`0x${string}`[]>([]);
+
+  const addTarget = () => {
+    const addr = input.trim() as `0x${string}`;
+    if (addr.startsWith("0x") && addr.length === 42 && !targets.includes(addr)) {
+      setTargets(prev => [...prev, addr]);
+      setInput("");
+    }
+  };
+
+  const STEPS = [
+    { n: "01", title: "Find a position",    body: "A position is liquidatable when its health factor drops below 1.0 due to collateral price decline." },
+    { n: "02", title: "Enter the address",  body: "Paste the borrower's wallet address below to check if their position can be liquidated." },
+    { n: "03", title: "Earn the bonus",     body: "Repay up to 50% of their debt and receive collateral worth 8% more — your liquidation profit." },
+  ];
+
+  if (!isConnected) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="card p-12 text-center max-w-sm w-full">
+          <div className="text-5xl mb-4">⚡</div>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: "var(--text-primary)", marginBottom: 8 }}>
+            Connect Wallet
+          </h2>
+          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Connect your wallet to execute liquidations.</p>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Paste any borrower address to check if their position is liquidatable.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 space-y-10">
+
+      {/* Header */}
+      <div className="reveal">
+        <p className="section-label mb-1">Liquidations</p>
+        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(1.5rem,3vw,2rem)", color: "var(--text-primary)", marginBottom: 8 }}>
+          Liquidation Engine
+        </h1>
+        <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 480 }}>
+          Protect the protocol and earn rewards by liquidating undercollateralised positions.
         </p>
       </div>
 
-      {/* Liquidation cards */}
-      {targets.length > 0 && (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* How it works */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {STEPS.map(({ n, title, body }, i) => (
+          <div key={n} className={`reveal reveal-delay-${i + 1} card p-6`}>
+            <p className="num-lg num mb-3" style={{ color: "var(--cyan)", opacity: 0.5 }}>{n}</p>
+            <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
+              {title}
+            </h3>
+            <p style={{ color: "var(--text-muted)", fontSize: 13.5, lineHeight: 1.65 }}>{body}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Address input */}
+      <div className="reveal card p-6">
+        <p className="section-label mb-4">Check a position</p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input type="text" value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addTarget()}
+            placeholder="0x... borrower address"
+            className="input-field flex-1" style={{ fontSize: 14, padding: "11px 14px", fontFamily: "var(--font-mono)" }} />
+          <button onClick={addTarget} className="btn-primary px-6 py-3 whitespace-nowrap">
+            Check Position
+          </button>
+        </div>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
+          Press Enter or click Check Position. Multiple addresses supported.
+        </p>
+      </div>
+
+      {/* Results */}
+      {targets.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {targets.map(addr => <LiquidationCard key={addr} borrower={addr} />)}
         </div>
-      )}
-
-      {targets.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-700 py-16 text-center">
-          <p className="text-5xl mb-4">🏹</p>
-          <p className="text-slate-500">No targets yet. Enter a borrower address above to check their health factor.</p>
+      ) : (
+        <div className="reveal card py-20 text-center">
+          <div className="text-4xl mb-4" style={{ opacity: 0.25 }}>🏹</div>
+          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
+            No targets yet. Enter a borrower address above.
+          </p>
         </div>
       )}
-    </main>
+    </div>
   );
 }
