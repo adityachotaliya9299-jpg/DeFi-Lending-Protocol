@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title  ILendingPool
+ * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
  * @notice Main protocol interface — deposit, borrow, repay, withdraw, liquidate.
  */
 interface ILendingPool {
@@ -43,6 +44,11 @@ interface ILendingPool {
     event AssetInitialised(address indexed asset, address indexed lToken);
     event InterestAccrued(address indexed asset, uint256 liquidityIndex, uint256 borrowIndex);
     event ReservesCollected(address indexed asset, uint256 amount);
+    event IsolationConfigSet(address indexed asset, bool isolated, uint256 ceiling);
+    event IsolationAllowedBorrowSet(address indexed collateral, address indexed borrowAsset, bool allowed);
+    event EModeCategorySet(uint8 indexed id, uint16 ltv, uint16 liquidationThreshold, string label);
+    event AssetEModeCategorySet(address indexed asset, uint8 categoryId);
+    event UserEModeSet(address indexed user, uint8 categoryId);
 
     // ─── Errors ───────────────────────────────────────────────────────────────
 
@@ -56,13 +62,15 @@ interface ILendingPool {
     error LendingPool__SameAsset();
     error LendingPool__InsufficientBalance();
     error LendingPool__Unauthorized();
+    error LendingPool__IsolationBorrowNotAllowed(address collateral, address borrowAsset);
+    error LendingPool__IsolationDebtCeilingExceeded(address collateral, uint256 current, uint256 ceiling);
+    error LendingPool__EModeNotActive(uint8 categoryId);
 
     // ─── Core functions ───────────────────────────────────────────────────────
 
     function deposit(address asset, uint256 amount) external;
     function withdraw(address asset, uint256 amount) external returns (uint256 withdrawn);
     function borrow(address asset, uint256 amount) external;
-     function CLOSE_FACTOR_BPS() external view returns (uint256);
     function repay(address asset, uint256 amount) external returns (uint256 repaid);
     function liquidate(
         address borrower,
@@ -74,7 +82,6 @@ interface ILendingPool {
     // ─── View functions ───────────────────────────────────────────────────────
 
     function getReserveData(address asset) external view returns (ReserveData memory);
-    
     function getUserHealthFactor(address user) external view returns (uint256);
     function getUserAccountData(address user) external view returns (
         uint256 totalCollateralUsd,

@@ -15,6 +15,8 @@ import {WadRayMath}          from "../math/WadRayMath.sol";
 import {PercentageMath}      from "../math/PercentageMath.sol";
 import {FlashLoanProvider}   from "./FlashLoanProvider.sol";
 import {IFlashLoanReceiver}  from "../interfaces/IFlashLoanReceiver.sol";
+import {IsolationMode}       from "../modes/IsolationMode.sol";
+import {EfficiencyMode}      from "../modes/EfficiencyMode.sol";
 
 /**
  * @title  LendingPool
@@ -105,6 +107,35 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
     mapping(address => mapping(address => bool)) private _hasBorrow;
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  Isolation Mode storage
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice True if this asset can only be used as isolated collateral.
+    mapping(address => bool)    public assetIsIsolated;
+
+    /// @notice Max total USD (WAD) that can be borrowed against an isolated asset globally.
+    mapping(address => uint256) public isolationDebtCeiling;
+
+    /// @notice Current total USD (WAD) borrowed against each isolated asset.
+    mapping(address => uint256) public isolationCurrentDebt;
+
+    /// @notice isolationAllowedBorrow[collateral][borrowAsset] = true if allowed.
+    mapping(address => mapping(address => bool)) public isolationAllowedBorrow;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  E-Mode storage
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Registered E-Mode categories (id → config).
+    mapping(uint8 => EfficiencyMode.EModeCategory) public eModeCategories;
+
+    /// @notice Which E-Mode category each asset belongs to (0 = none).
+    mapping(address => uint8) public assetEModeCategory;
+
+    /// @notice Which E-Mode category each user has opted into (0 = none).
+    mapping(address => uint8) public userEModeCategory;
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  Constructor
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -178,6 +209,79 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
     function setTreasury(address treasury_) external onlyRole(POOL_ADMIN_ROLE) {
         if (treasury_ == address(0)) revert LendingPool__ZeroAddress();
         treasury = treasury_;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Admin — Isolation Mode
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Mark an asset as isolated and set its debt ceiling.
+     * @param  asset     The collateral asset to isolate.
+     * @param  isolated  True to enable isolation mode.
+     * @param  ceiling   Max USD value (WAD) borrowable against this collateral globally.
+     */
+    function setIsolationConfig(address asset, bool isolated, uint256 ceiling)
+        external onlyRole(POOL_ADMIN_ROLE)
+    {
+        assetIsIsolated[asset]      = isolated;
+        isolationDebtCeiling[asset] = ceiling;
+        emit IsolationConfigSet(asset, isolated, ceiling);
+    }
+
+    /**
+     * @notice Set whether `borrowAsset` can be borrowed when `collateral` is isolated.
+     */
+    function setIsolationAllowedBorrow(address collateral, address borrowAsset, bool allowed)
+        external onlyRole(POOL_ADMIN_ROLE)
+    {
+        isolationAllowedBorrow[collateral][borrowAsset] = allowed;
+        emit IsolationAllowedBorrowSet(collateral, borrowAsset, allowed);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Admin — E-Mode
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Register or update an E-Mode category.
+     * @param  id   Category ID (1-255, 0 is reserved for NO_EMODE).
+     * @param  cat  Category parameters (ltv, liquidationThreshold, liquidationBonus, label).
+     */
+    function setEModeCategory(uint8 id, EfficiencyMode.EModeCategory calldata cat)
+        external onlyRole(POOL_ADMIN_ROLE)
+    {
+        require(id != EfficiencyMode.NO_EMODE, "id 0 reserved");
+        EfficiencyMode.validateCategory(cat);
+        eModeCategories[id] = cat;
+        emit EModeCategorySet(id, cat.ltv, cat.liquidationThreshold, cat.label);
+    }
+
+    /**
+     * @notice Assign an asset to an E-Mode category.
+     */
+    function setAssetEModeCategory(address asset, uint8 categoryId)
+        external onlyRole(POOL_ADMIN_ROLE)
+    {
+        if (categoryId != EfficiencyMode.NO_EMODE) {
+            require(eModeCategories[categoryId].active, "category not active");
+        }
+        assetEModeCategory[asset] = categoryId;
+        emit AssetEModeCategorySet(asset, categoryId);
+    }
+
+    /**
+     * @notice User opts into an E-Mode category.
+     *         Pass 0 to exit E-Mode.
+     *         When in E-Mode, ALL collateral AND debt must be in the same category
+     *         to receive the higher LTV. Mixed positions use standard parameters.
+     */
+    function setUserEMode(uint8 categoryId) external {
+        if (categoryId != EfficiencyMode.NO_EMODE) {
+            require(eModeCategories[categoryId].active, "category not active");
+        }
+        userEModeCategory[msg.sender] = categoryId;
+        emit UserEModeSet(msg.sender, categoryId);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -308,6 +412,29 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
         // Health check after borrow
         _requireHealthy(msg.sender);
 
+        // ── Isolation Mode check ───────────────────────────────────────────
+        // If any of the user's collateral is an isolated asset, they may only
+        // borrow stablecoins from the allowed list, and must respect the ceiling.
+        address[] memory userColl = _userCollateral[msg.sender];
+        for (uint256 i; i < userColl.length; ++i) {
+            address coll = userColl[i];
+            if (!assetIsIsolated[coll]) continue;
+
+            // Must be an allowed borrowable for this isolated collateral
+            if (!isolationAllowedBorrow[coll][asset])
+                revert LendingPool__IsolationBorrowNotAllowed(coll, asset);
+
+            // Check and update the global isolation debt ceiling
+            uint256 borrowUsd = oracle.getValueInUsd(asset, amount);
+            uint256 newDebt   = isolationCurrentDebt[coll] + borrowUsd;
+            if (newDebt > isolationDebtCeiling[coll])
+                revert LendingPool__IsolationDebtCeilingExceeded(
+                    coll, isolationCurrentDebt[coll], isolationDebtCeiling[coll]
+                );
+            isolationCurrentDebt[coll] = newDebt;
+            break; // a user can only have one isolated collateral active
+        }
+
         // Transfer to user
         IERC20(asset).safeTransfer(msg.sender, amount);
 
@@ -413,26 +540,28 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
         if (debtAmount > maxClose) debtAmount = maxClose;
 
         // ── 4. Calculate collateral to seize ────────────────────────────────
-        uint256 collateralToSeize;
-        {
-            uint256 debtUsd        = oracle.getValueInUsd(debtAsset, debtAmount);
-            uint256 collPrice      = oracle.getPrice(collateralAsset);
-            uint8   collDecimals   = IERC20Metadata(collateralAsset).decimals();
-            uint256 bonusFactor    = PercentageMath.PERCENTAGE_FACTOR
-                + collateralManager.getAssetConfig(collateralAsset).liquidationBonus;
+        uint256 debtUsd       = oracle.getValueInUsd(debtAsset, debtAmount);
+        uint256 collateralPrice = oracle.getPrice(collateralAsset);
+        uint8   collDecimals  = IERC20Metadata(collateralAsset).decimals();
 
-            collateralToSeize = (debtUsd.percentMul(bonusFactor) * (10 ** collDecimals)) / collPrice;
+        ICollateralManager.AssetConfig memory cfg =
+            collateralManager.getAssetConfig(collateralAsset);
 
-            uint256 collateralBalance = _scaledDeposits[borrower][collateralAsset]
-                .rayMul(collateralReserve.liquidityIndex);
+        // collateralToSeize = debtUsd * (1 + bonus) / collateralPrice * 10^collDecimals
+        uint256 bonusFactor = PercentageMath.PERCENTAGE_FACTOR + cfg.liquidationBonus;
+        uint256 seizeUsd    = debtUsd.percentMul(bonusFactor);
+        uint256 collateralToSeize = (seizeUsd * (10 ** collDecimals)) / collateralPrice;
 
-            if (collateralToSeize > collateralBalance) {
-                collateralToSeize = collateralBalance;
-                debtAmount = (collateralToSeize * collPrice)
-                    / (10 ** collDecimals)
-                    / bonusFactor
-                    * PercentageMath.PERCENTAGE_FACTOR;
-            }
+        // Cap seizure at borrower's actual collateral
+        uint256 collateralBalance = _scaledDeposits[borrower][collateralAsset]
+            .rayMul(collateralReserve.liquidityIndex);
+        if (collateralToSeize > collateralBalance) {
+            collateralToSeize = collateralBalance;
+            // Recalculate actual debt repaid to match collateral seized
+            debtAmount = (collateralToSeize * collateralPrice)
+                / (10 ** collDecimals)
+                / bonusFactor
+                * PercentageMath.PERCENTAGE_FACTOR;
         }
 
         // ── 5. Update borrower's debt ────────────────────────────────────────
@@ -582,6 +711,23 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
         uint256[] memory collUsds = new uint256[](collAssets.length);
         uint256[] memory debtUsds = new uint256[](debtAssets.length);
 
+        // ── Check E-Mode eligibility ───────────────────────────────────────
+        // User gets E-Mode parameters only when ALL their collateral AND ALL
+        // their debt assets are in the same E-Mode category as the user opted into.
+        uint8 userEMode = userEModeCategory[user];
+        bool  eMode     = false;
+        if (userEMode != EfficiencyMode.NO_EMODE) {
+            eMode = true;
+            for (uint256 i; i < collAssets.length; ++i) {
+                if (assetEModeCategory[collAssets[i]] != userEMode) { eMode = false; break; }
+            }
+            if (eMode) {
+                for (uint256 i; i < debtAssets.length; ++i) {
+                    if (assetEModeCategory[debtAssets[i]] != userEMode) { eMode = false; break; }
+                }
+            }
+        }
+
         for (uint256 i; i < collAssets.length; ++i) {
             address a    = collAssets[i];
             uint256 bal  = _scaledDeposits[user][a].rayMul(_reserves[a].liquidityIndex);
@@ -596,9 +742,25 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
             totalDebtUsd += debtUsds[i];
         }
 
-        healthFactor = collateralManager.calculateHealthFactor(
-            collAssets, collUsds, debtUsds
-        );
+        // ── Health factor calculation ──────────────────────────────────────
+        // If user is in E-Mode, override per-asset LTV with category params.
+        if (eMode && collAssets.length > 0) {
+            EfficiencyMode.EModeCategory memory cat = eModeCategories[userEMode];
+            // adjustedCollateral = sum(collUsd * eModeThreshold)
+            uint256 adjustedColl;
+            for (uint256 i; i < collUsds.length; ++i) {
+                adjustedColl += collUsds[i].percentMul(cat.liquidationThreshold);
+            }
+            if (totalDebtUsd == 0) {
+                healthFactor = type(uint256).max;
+            } else {
+                healthFactor = (adjustedColl * RAY) / totalDebtUsd;
+            }
+        } else {
+            healthFactor = collateralManager.calculateHealthFactor(
+                collAssets, collUsds, debtUsds
+            );
+        }
     }
 
     function _requireHealthy(address user) internal view {
