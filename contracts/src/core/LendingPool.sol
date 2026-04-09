@@ -11,8 +11,10 @@ import {ICollateralManager} from "../interfaces/ICollateralManager.sol";
 import {IPriceOracle}      from "../interfaces/IPriceOracle.sol";
 import {IInterestRateModel} from "../interfaces/IInterestRateModel.sol";
 import {LendingToken}      from "../tokens/LendingToken.sol";
-import {WadRayMath}        from "../math/WadRayMath.sol";
-import {PercentageMath}    from "../math/PercentageMath.sol";
+import {WadRayMath}          from "../math/WadRayMath.sol";
+import {PercentageMath}      from "../math/PercentageMath.sol";
+import {FlashLoanProvider}   from "./FlashLoanProvider.sol";
+import {IFlashLoanReceiver}  from "../interfaces/IFlashLoanReceiver.sol";
 
 /**
  * @title  LendingPool
@@ -47,7 +49,7 @@ import {PercentageMath}    from "../math/PercentageMath.sol";
  *   • Close factor: liquidator can repay at most 50% of debt per call
  *   • Liquidation only when HF < 1.0
  */
-contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl {
+contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanProvider {
     using SafeERC20   for IERC20;
     using WadRayMath  for uint256;
     using PercentageMath for uint256;
@@ -411,28 +413,26 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl {
         if (debtAmount > maxClose) debtAmount = maxClose;
 
         // ── 4. Calculate collateral to seize ────────────────────────────────
-        uint256 debtUsd       = oracle.getValueInUsd(debtAsset, debtAmount);
-        uint256 collateralPrice = oracle.getPrice(collateralAsset);
-        uint8   collDecimals  = IERC20Metadata(collateralAsset).decimals();
+        uint256 collateralToSeize;
+        {
+            uint256 debtUsd        = oracle.getValueInUsd(debtAsset, debtAmount);
+            uint256 collPrice      = oracle.getPrice(collateralAsset);
+            uint8   collDecimals   = IERC20Metadata(collateralAsset).decimals();
+            uint256 bonusFactor    = PercentageMath.PERCENTAGE_FACTOR
+                + collateralManager.getAssetConfig(collateralAsset).liquidationBonus;
 
-        ICollateralManager.AssetConfig memory cfg =
-            collateralManager.getAssetConfig(collateralAsset);
+            collateralToSeize = (debtUsd.percentMul(bonusFactor) * (10 ** collDecimals)) / collPrice;
 
-        // collateralToSeize = debtUsd * (1 + bonus) / collateralPrice * 10^collDecimals
-        uint256 bonusFactor = PercentageMath.PERCENTAGE_FACTOR + cfg.liquidationBonus;
-        uint256 seizeUsd    = debtUsd.percentMul(bonusFactor);
-        uint256 collateralToSeize = (seizeUsd * (10 ** collDecimals)) / collateralPrice;
+            uint256 collateralBalance = _scaledDeposits[borrower][collateralAsset]
+                .rayMul(collateralReserve.liquidityIndex);
 
-        // Cap seizure at borrower's actual collateral
-        uint256 collateralBalance = _scaledDeposits[borrower][collateralAsset]
-            .rayMul(collateralReserve.liquidityIndex);
-        if (collateralToSeize > collateralBalance) {
-            collateralToSeize = collateralBalance;
-            // Recalculate actual debt repaid to match collateral seized
-            debtAmount = (collateralToSeize * collateralPrice)
-                / (10 ** collDecimals)
-                / bonusFactor
-                * PercentageMath.PERCENTAGE_FACTOR;
+            if (collateralToSeize > collateralBalance) {
+                collateralToSeize = collateralBalance;
+                debtAmount = (collateralToSeize * collPrice)
+                    / (10 ** collDecimals)
+                    / bonusFactor
+                    * PercentageMath.PERCENTAGE_FACTOR;
+            }
         }
 
         // ── 5. Update borrower's debt ────────────────────────────────────────
@@ -572,8 +572,6 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl {
         return hf;
     }
 
-    
-
     function _getAccountTotals(address user)
         internal view
         returns (uint256 totalCollateralUsd, uint256 totalDebtUsd, uint256 healthFactor)
@@ -650,5 +648,57 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl {
                 break;
             }
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  FlashLoanProvider hooks
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @dev Event emitted by FlashLoanProvider — declared here for test ABI access.
+    event FlashLoanExecuted(
+        address indexed receiver,
+        address indexed asset,
+        uint256 amount,
+        uint256 fee
+    );
+
+    /**
+     * @dev Returns how much of `asset` is available to flash-loan
+     *      (total deposits minus current borrows, same as regular borrow liquidity).
+     */
+    function _getFlashLoanAvailable(address asset)
+        internal view override returns (uint256)
+    {
+        ReserveData storage r = _reserves[asset];
+        if (!r.isActive) return 0;
+        return _getAvailableLiquidity(asset, r);
+    }
+
+    /**
+     * @dev Called after a flash loan fee is confirmed received.
+     *      Distributes fee to depositors by bumping the liquidity index
+     *      — every lToken holder's redeemable amount increases pro-rata.
+     *
+     *      liquidityIndex += fee * RAY / totalDeposits
+     *      (simplified linear bump; production would use rayMul compounding)
+     */
+    function _onFlashLoanFeeCollected(address asset, uint256 fee) internal override {
+        if (fee == 0) return;
+        ReserveData storage r = _reserves[asset];
+        if (r.totalScaledDeposits == 0) return;
+
+        // Increase liquidity index so depositors earn the fee
+        uint256 currentLiq   = r.liquidityIndex;
+        uint256 totalDeposits = r.totalScaledDeposits.rayMul(currentLiq);
+        // feeRay = fee * RAY / totalDeposits  →  newIndex = oldIndex + feeRay
+        uint256 feeIndexDelta = (fee * 1e27) / totalDeposits;
+        r.liquidityIndex = uint128(currentLiq + feeIndexDelta);
+    }
+
+    /**
+     * @dev Only POOL_ADMIN_ROLE can update the flash loan fee.
+     */
+    function _requireFlashLoanAdmin() internal view override {
+        _checkRole(POOL_ADMIN_ROLE);
     }
 }
