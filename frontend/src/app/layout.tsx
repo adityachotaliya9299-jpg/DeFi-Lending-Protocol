@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Providers }        from "./providers";
-import { ThemeProvider }    from "@/components/ThemeProvider";
-import { Navbar }           from "@/components/layout/Navbar";
-import { Footer }           from "@/components/layout/Footer";
-import { ToastContainer }   from "@/components/ui/Toast";
+import { Providers }            from "./providers";
+import { ThemeProvider }        from "@/components/ThemeProvider";
+import { Navbar }               from "@/components/layout/Navbar";
+import { Footer }               from "@/components/layout/Footer";
+import { ToastContainer }       from "@/components/ui/Toast";
+import { WrongNetworkBanner }   from "@/components/ui/WrongNetwork";
 
 export const metadata: Metadata = {
   title:       "LendFi — DeFi Lending Protocol",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <Providers>
+            <WrongNetworkBanner />
             <Navbar />
             <main className="min-h-screen">
               {children}

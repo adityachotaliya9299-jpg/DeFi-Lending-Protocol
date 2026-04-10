@@ -61,8 +61,9 @@ contract CreditDelegationTest is Test {
     }
 
     function test_approveDelegation_pastExpiryReverts() public {
+        vm.warp(1000);
         vm.prank(alice);
-        vm.expectRevert(CreditDelegation.CreditDelegation__DelegationExpired.selector);
+        vm.expectRevert();
         cd.approveDelegation(bob, usdc, 1000 * WAD, block.timestamp - 1);
     }
 

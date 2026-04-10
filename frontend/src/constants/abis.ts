@@ -1,5 +1,3 @@
-// Minimal ABIs — only the functions the frontend calls.
-// Generate full ABIs with: forge build && cat out/LendingPool.sol/LendingPool.json | jq .abi
 
 export const LENDING_POOL_ABI = [
   // View
@@ -114,4 +112,32 @@ export const LIQUIDATION_ENGINE_ABI = [
       { name: "liquidatable",       type: "bool"    },
     ]
   },
+] as const;
+
+// Extended ABI entries for new features
+export const LENDING_POOL_EXTENDED_ABI = [
+  { name: "paused",         type: "function", stateMutability: "view",        inputs: [], outputs: [{ name: "", type: "bool" }] },
+  { name: "pause",          type: "function", stateMutability: "nonpayable",  inputs: [], outputs: [] },
+  { name: "unpause",        type: "function", stateMutability: "nonpayable",  inputs: [], outputs: [] },
+  { name: "setUserEMode",   type: "function", stateMutability: "nonpayable",  inputs: [{ name: "categoryId", type: "uint8" }], outputs: [] },
+  { name: "userEModeCategory", type: "function", stateMutability: "view",
+    inputs: [{ name: "", type: "address" }], outputs: [{ name: "", type: "uint8" }] },
+  { name: "GUARDIAN_ROLE",  type: "function", stateMutability: "view",        inputs: [], outputs: [{ name: "", type: "bytes32" }] },
+  { name: "hasRole",        type: "function", stateMutability: "view",
+    inputs: [{ name: "role", type: "bytes32" }, { name: "account", type: "address" }],
+    outputs: [{ name: "", type: "bool" }] },
+  { name: "flashLoan",      type: "function", stateMutability: "nonpayable",
+    inputs: [
+      { name: "receiverAddress", type: "address" },
+      { name: "asset",           type: "address" },
+      { name: "amount",          type: "uint256" },
+      { name: "params",          type: "bytes"   },
+    ], outputs: [] },
+  { name: "maxFlashLoan",   type: "function", stateMutability: "view",
+    inputs: [{ name: "asset", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
+  { name: "flashFee",       type: "function", stateMutability: "view",
+    inputs: [{ name: "asset", type: "address" }, { name: "amount", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256" }] },
+  { name: "FLASH_LOAN_FEE_BPS", type: "function", stateMutability: "view",
+    inputs: [], outputs: [{ name: "", type: "uint256" }] },
 ] as const;
