@@ -1,151 +1,108 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
-import { parseUnits } from "viem";
-import { LENDING_POOL_ABI, LIQUIDATION_ENGINE_ABI, ERC20_ABI } from "@/constants/abis";
+import { isAddress } from "viem";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { LENDING_POOL_ABI } from "@/constants/abis";
 import { getAddresses } from "@/constants/addresses";
 import { SUPPORTED_ASSETS } from "@/constants/assets";
-import { formatHealthFactor, formatUsd, shortenAddress } from "@/lib/format";
-import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-function LiquidationCard({ borrower }: { borrower: `0x${string}` }) {
-  const chainId = useChainId();
-  const [debtAsset, setDebtAsset] = useState(SUPPORTED_ASSETS[1].symbol);
-  const [collAsset, setCollAsset] = useState(SUPPORTED_ASSETS[0].symbol);
-  const [amount, setAmount]       = useState("");
-
-  let engineAddr: `0x${string}` = "0x0";
-  let poolAddr:   `0x${string}` = "0x0";
-  try {
-    const a = getAddresses(chainId);
-    engineAddr = a.LIQUIDATION_ENGINE;
-    poolAddr   = a.LENDING_POOL;
-  } catch {}
-
-  const { data: liqData } = useReadContract({
-    address: engineAddr, abi: LIQUIDATION_ENGINE_ABI, functionName: "getLiquidationData",
-    args: [borrower], query: { enabled: engineAddr !== "0x0" },
-  });
-
-  const { writeContract, data: txHash } = useWriteContract();
-  const { isLoading: isPending } = useWaitForTransactionReceipt({ hash: txHash });
-
-  if (!liqData) return (
-    <div className="card p-6 text-center">
-      <div className="text-2xl mb-2" style={{ opacity: 0.4 }}>◎</div>
-      <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading position data…</p>
-    </div>
+function HFBadge({ hf }: { hf: number }) {
+  let color = "#34d399", label = "Safe", bg = "rgba(52,211,153,0.1)", border = "rgba(52,211,153,0.25)";
+  if (hf < 1)    { color = "#ef4444"; label = "Liquidatable"; bg = "rgba(239,68,68,0.12)"; border = "rgba(239,68,68,0.3)"; }
+  else if (hf < 1.2) { color = "#f59e0b"; label = "At Risk";      bg = "rgba(245,158,11,0.1)";  border = "rgba(245,158,11,0.25)"; }
+  return (
+    <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color, background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: "4px 12px" }}>
+      {label} ({hf.toFixed(3)})
+    </span>
   );
+}
 
-  const [totalColl, totalDebt, hf, , liquidatable] = liqData;
-  const hfNum = Number(hf) / 1e18;
+function LiqRow({ addr, hf }: { addr: string; hf: number }) {
+  const [amount, setAmount] = useState("");
+  const [debtAsset, setDebtAsset] = useState<`0x${string}`>(SUPPORTED_ASSETS[1].address as `0x${string}`);
+  const [collAsset, setCollAsset] = useState<`0x${string}`>(SUPPORTED_ASSETS[0].address as `0x${string}`);
+  const chainId = useChainId();
+  const { writeContract, data: txHash } = useWriteContract();
+  const { isLoading } = useWaitForTransactionReceipt({ hash: txHash });
 
-  const hfColor = hfNum < 1 ? "#ef4444" : hfNum < 1.2 ? "#f59e0b" : "#10b981";
+  let poolAddr = "0x0" as `0x${string}`;
+  try { poolAddr = getAddresses(chainId).LENDING_POOL; } catch {}
 
-  const handleLiquidate = () => {
-    if (!amount) return;
-    const debtInfo = SUPPORTED_ASSETS.find(a => a.symbol === debtAsset)!;
-    let debtAddr: `0x${string}` = "0x0";
-    let collAddr: `0x${string}` = "0x0";
-    try {
-      const addrs = getAddresses(chainId);
-      debtAddr = (addrs[debtAsset as keyof typeof addrs] as `0x${string}`) ?? "0x0";
-      collAddr = (addrs[collAsset as keyof typeof addrs] as `0x${string}`) ?? "0x0";
-    } catch {}
-    const parsed = parseUnits(amount, debtInfo.decimals);
-    writeContract({ address: debtAddr, abi: ERC20_ABI, functionName: "approve", args: [poolAddr, parsed] });
-  };
+  const canLiquidate = hf < 1;
+  const hfColor = hf < 1 ? "#ef4444" : hf < 1.2 ? "#f59e0b" : "#34d399";
 
   return (
-    <div className="card p-6 reveal reveal-scale"
-      style={{ borderColor: liquidatable ? "rgba(239,68,68,0.3)" : "var(--border)" }}>
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5">
-        <div>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-            Borrower
-          </p>
-          <p className="num text-sm" style={{ color: "var(--text-primary)", wordBreak: "break-all" }}>
-            {shortenAddress(borrower)}
-          </p>
+    <div style={{ background: "var(--bg-card)", border: `1px solid ${hf < 1 ? "rgba(239,68,68,0.3)" : "var(--border)"}`,
+      borderRadius: 16, overflow: "hidden",
+      boxShadow: hf < 1 ? "0 0 20px rgba(239,68,68,0.08)" : "var(--shadow-card)" }}>
+      {hf < 1 && <div style={{ height: 3, background: "linear-gradient(90deg, #ef4444, transparent)" }} />}
+      <div style={{ padding: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Position</p>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-primary)", wordBreak: "break-all" }}>{addr}</p>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Health Factor</p>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 500, color: hfColor, lineHeight: 1 }}>{hf.toFixed(3)}</p>
+          </div>
         </div>
-        {liquidatable ? (
-          <span className="badge badge-red">LIQUIDATABLE</span>
+
+        {canLiquidate ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>Repay (debt asset)</p>
+                <select value={debtAsset} onChange={e => setDebtAsset(e.target.value as `0x${string}`)}
+                  style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 10,
+                    padding: "10px 12px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-primary)", outline: "none" }}>
+                  {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.address}>{a.symbol}</option>)}
+                </select>
+              </div>
+              <div>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>Receive (collateral)</p>
+                <select value={collAsset} onChange={e => setCollAsset(e.target.value as `0x${string}`)}
+                  style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 10,
+                    padding: "10px 12px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-primary)", outline: "none" }}>
+                  {SUPPORTED_ASSETS.filter(a => a.address !== debtAsset).map(a => <option key={a.symbol} value={a.address}>{a.symbol}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", gap: 8 }}>
+              <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+                placeholder="Repay amount" style={{ flex: 1, background: "transparent", border: "none", outline: "none",
+                  fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--text-primary)" }} />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 8px" }}>
+                Max 50%
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                if (!amount || !addr) return;
+                const { parseUnits } = require("viem");
+                writeContract({ address: poolAddr, abi: LENDING_POOL_ABI, functionName: "liquidate",
+                  args: [addr as `0x${string}`, debtAsset as `0x${string}`, collAsset as `0x${string}`, parseUnits(amount, 6)] });
+              }}
+              disabled={!amount || isLoading}
+              style={{ width: "100%", borderRadius: 12, padding: "13px 0", border: "none", cursor: !amount ? "not-allowed" : "pointer",
+                fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14,
+                background: amount ? "#ef4444" : "rgba(239,68,68,0.15)",
+                color: amount ? "#fff" : "rgba(239,68,68,0.4)", transition: "all 0.15s" }}>
+              {isLoading ? "Liquidating…" : "⚡ Liquidate Position"}
+            </button>
+            {txHash && <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", textAlign: "center" }}>Tx: {txHash.slice(0,10)}…</p>}
+          </div>
         ) : (
-          <span className="badge badge-green">HEALTHY</span>
+          <div style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.15)", borderRadius: 10, padding: "12px 16px" }}>
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+              This position is healthy (HF ≥ 1.0). No liquidation possible.
+            </p>
+          </div>
         )}
       </div>
-
-      {/* Position stats */}
-      <div className="grid grid-cols-3 gap-2 mb-5">
-        {[
-          { label: "Collateral", value: formatUsd(totalColl), color: "var(--cyan)" },
-          { label: "Debt",       value: formatUsd(totalDebt), color: "#f87171" },
-          { label: "HF",         value: formatHealthFactor(hf), color: hfColor },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="rounded-xl p-3 text-center"
-            style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-              {label}
-            </p>
-            <p className="num text-sm" style={{ color }}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {liquidatable && (
-        <>
-          {/* Controls */}
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
-                Repay asset
-              </label>
-              <select value={debtAsset} onChange={e => setDebtAsset(e.target.value)}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
-                Receive collateral
-              </label>
-              <select value={collAsset} onChange={e => setCollAsset(e.target.value)}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-            placeholder={`Amount of ${debtAsset} to repay`}
-            className="input-field mb-4" style={{ fontSize: 14, padding: "10px 14px" }} />
-
-          <div className="rounded-lg px-3 py-2.5 mb-4 text-sm flex items-center gap-2"
-            style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#34d399" }}>
-            <span>💰</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-              Liquidators receive 8% bonus on seized collateral
-            </span>
-          </div>
-
-          <button onClick={handleLiquidate} disabled={isPending || !amount}
-            className="w-full rounded-xl py-3 font-bold text-sm transition-all"
-            style={{
-              fontFamily: "var(--font-display)",
-              background: isPending || !amount ? "rgba(239,68,68,0.3)" : "#ef4444",
-              color: "#fff",
-              border: "none",
-              cursor: isPending || !amount ? "not-allowed" : "pointer",
-            }}>
-            {isPending ? "Processing…" : "Execute Liquidation"}
-          </button>
-        </>
-      )}
     </div>
   );
 }
@@ -153,94 +110,133 @@ function LiquidationCard({ borrower }: { borrower: `0x${string}` }) {
 export default function LiquidatePage() {
   useScrollAnimation();
   const { isConnected } = useAccount();
-  const [input, setInput]   = useState("");
-  const [targets, setTargets] = useState<`0x${string}`[]>([]);
+  const chainId = useChainId();
+  const [search, setSearch] = useState("");
+  const [queried, setQueried] = useState<string | null>(null);
 
-  const addTarget = () => {
-    const addr = input.trim() as `0x${string}`;
-    if (addr.startsWith("0x") && addr.length === 42 && !targets.includes(addr)) {
-      setTargets(prev => [...prev, addr]);
-      setInput("");
-    }
-  };
+  let poolAddr = "0x0" as `0x${string}`;
+  try { poolAddr = getAddresses(chainId).LENDING_POOL; } catch {}
 
-  const STEPS = [
-    { n: "01", title: "Find a position",    body: "A position is liquidatable when its health factor drops below 1.0 due to collateral price decline." },
-    { n: "02", title: "Enter the address",  body: "Paste the borrower's wallet address below to check if their position can be liquidated." },
-    { n: "03", title: "Earn the bonus",     body: "Repay up to 50% of their debt and receive collateral worth 8% more — your liquidation profit." },
+  const { data: accountData } = useReadContract({
+    address: poolAddr, abi: LENDING_POOL_ABI, functionName: "getUserAccountData",
+    args: queried ? [queried as `0x${string}`] : undefined,
+    query: { enabled: !!queried },
+  });
+
+  const [,,hfRaw] = (accountData as bigint[] | undefined) ?? [];
+  const hf = hfRaw ? Number(hfRaw) / 1e18 : null;
+
+  const handleSearch = useCallback(() => {
+    if (isAddress(search)) setQueried(search);
+  }, [search]);
+
+  // Example at-risk positions for demo
+  const AT_RISK = [
+    { addr: "0xabc...1234", hf: 0.94 },
+    { addr: "0xdef...5678", hf: 1.04 },
   ];
 
-  if (!isConnected) {
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <div className="card p-12 text-center max-w-sm w-full">
-          <div className="text-5xl mb-4">⚡</div>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: "var(--text-primary)", marginBottom: 8 }}>
-            Connect Wallet
-          </h2>
-          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Connect your wallet to execute liquidations.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-7xl px-4 md:px-6 py-10 space-y-10">
+    <div className="mx-auto max-w-7xl px-4 md:px-6 py-10">
 
       {/* Header */}
-      <div className="reveal">
-        <p className="section-label mb-1">Liquidations</p>
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(1.5rem,3vw,2rem)", color: "var(--text-primary)", marginBottom: 8 }}>
-          Liquidation Engine
-        </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 480 }}>
-          Protect the protocol and earn rewards by liquidating undercollateralised positions.
-        </p>
+      <div className="reveal mb-10">
+        <p className="section-label mb-1">Liquidation Engine</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(1.6rem,3vw,2.1rem)", color: "var(--text-primary)", marginBottom: 6 }}>
+              Liquidate Positions
+            </h1>
+            <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 500, lineHeight: 1.7 }}>
+              Earn an 8% bonus by repaying debt of undercollateralised positions. Maximum 50% of debt per call (close factor).
+            </p>
+          </div>
+          {!isConnected && <ConnectButton />}
+        </div>
       </div>
 
-      {/* How it works */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {STEPS.map(({ n, title, body }, i) => (
-          <div key={n} className={`reveal reveal-delay-${i + 1} card p-6`}>
-            <p className="num-lg num mb-3" style={{ color: "var(--cyan)", opacity: 0.5 }}>{n}</p>
-            <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
-              {title}
-            </h3>
-            <p style={{ color: "var(--text-muted)", fontSize: 13.5, lineHeight: 1.65 }}>{body}</p>
+      {/* Params */}
+      <div className="reveal reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 32 }}>
+        {[
+          { label: "Liq. Threshold", value: "< 1.0 HF",  color: "#ef4444"      },
+          { label: "Liquidation Bonus", value: "8%",     color: "#34d399"      },
+          { label: "Close Factor",   value: "50%",        color: "var(--cyan)"  },
+          { label: "Risk Zone",      value: "1.0–1.2 HF", color: "#f59e0b"     },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px 18px" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>{label}</p>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 500, color }}>{value}</p>
           </div>
         ))}
       </div>
 
-      {/* Address input */}
-      <div className="reveal card p-6">
-        <p className="section-label mb-4">Check a position</p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input type="text" value={input} onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addTarget()}
-            placeholder="0x... borrower address"
-            className="input-field flex-1" style={{ fontSize: 14, padding: "11px 14px", fontFamily: "var(--font-mono)" }} />
-          <button onClick={addTarget} className="btn-primary px-6 py-3 whitespace-nowrap">
-            Check Position
+      {/* Search */}
+      <div className="reveal" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18, padding: 24, marginBottom: 28 }}>
+        <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "var(--text-primary)", marginBottom: 14 }}>
+          Check any position
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            placeholder="0x... wallet address"
+            style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 12,
+              padding: "13px 16px", fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--text-primary)",
+              outline: "none" }} />
+          <button onClick={handleSearch} disabled={!isAddress(search || "")}
+            className="btn-primary" style={{ padding: "13px 24px", flexShrink: 0 }}>
+            Check →
           </button>
         </div>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
-          Press Enter or click Check Position. Multiple addresses supported.
-        </p>
+
+        {hf !== null && queried && (
+          <div style={{ marginTop: 16, background: hf < 1 ? "rgba(239,68,68,0.06)" : "rgba(52,211,153,0.06)",
+            border: `1px solid ${hf < 1 ? "rgba(239,68,68,0.2)" : "rgba(52,211,153,0.2)"}`,
+            borderRadius: 12, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{queried}</p>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: hf < 1 ? "#ef4444" : "#34d399" }}>
+                {hf < 1 ? "⚡ Liquidatable" : hf < 1.2 ? "⚠ At risk" : "✓ Healthy"}
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 2 }}>Health Factor</p>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: 36, fontWeight: 500, color: hf < 1 ? "#ef4444" : hf < 1.2 ? "#f59e0b" : "#34d399", lineHeight: 1 }}>
+                {hf.toFixed(3)}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Results */}
-      {targets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {targets.map(addr => <LiquidationCard key={addr} borrower={addr} />)}
+      {/* Example positions */}
+      <div className="reveal reveal-delay-1">
+        <p className="section-label" style={{ marginBottom: 14 }}>Example positions (demo data)</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {AT_RISK.map(({ addr, hf: h }) => <LiqRow key={addr} addr={addr} hf={h} />)}
         </div>
-      ) : (
-        <div className="reveal card py-20 text-center">
-          <div className="text-4xl mb-4" style={{ opacity: 0.25 }}>🏹</div>
-          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
-            No targets yet. Enter a borrower address above.
-          </p>
+      </div>
+
+      {/* How liquidation works */}
+      <div className="reveal" style={{ marginTop: 32 }}>
+        <p className="section-label" style={{ marginBottom: 14 }}>How liquidation works</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10 }}>
+          {[
+            { icon: "1", color: "#ef4444", title: "Position goes below HF 1.0",  body: "When collateral value drops or debt grows, health factor falls below 1.0." },
+            { icon: "2", color: "#f59e0b", title: "Liquidator repays debt",       body: "You repay up to 50% of borrower's debt by transferring the debt asset." },
+            { icon: "3", color: "#34d399", title: "Receive collateral + 8% bonus", body: "You receive collateral worth debt_repaid × 1.08. Profit is the spread." },
+            { icon: "4", color: "var(--cyan)", title: "HF recovers or position closes", body: "After liquidation HF improves. Multiple calls may be needed if HF < 0.5." },
+          ].map(({ icon, color, title, body }) => (
+            <div key={title} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 18 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: `${color}15`, border: `1px solid ${color}30`,
+                display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color }}>{icon}</span>
+              </div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 6 }}>{title}</p>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.65 }}>{body}</p>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

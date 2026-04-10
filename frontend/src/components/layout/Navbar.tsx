@@ -7,12 +7,14 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTheme } from "@/components/ThemeProvider";
 
 const NAV = [
-  { href: "/",           label: "Markets"   },
-  { href: "/dashboard",  label: "Dashboard" },
-  { href: "/portfolio",  label: "Portfolio" },
-  { href: "/risk",       label: "Risk"      },
-  { href: "/analytics",  label: "Analytics" },
-  { href: "/liquidate",  label: "Liquidate" },
+  { href: "/",           label: "Markets"    },
+  { href: "/dashboard",  label: "Dashboard"  },
+  { href: "/vault",      label: "pUSD Vault" },
+  { href: "/modes",      label: "E-Mode"     },
+  { href: "/risk",       label: "Risk"       },
+  { href: "/analytics",  label: "Analytics"  },
+  { href: "/flashloan",  label: "Flash Loans"},
+  { href: "/liquidate",  label: "Liquidate"  },
 ];
 
 function SunIcon() {
@@ -47,25 +49,26 @@ export function Navbar() {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg" style={{ background:"linear-gradient(135deg, var(--cyan) 0%, #a78bfa 100%)" }}>
-              <span className="text-sm font-bold text-slate-950">⬡</span>
+            <div className="h-8 w-8 flex items-center justify-center rounded-lg"
+              style={{ background: "linear-gradient(135deg, var(--cyan), #a78bfa)" }}>
+              <span className="text-slate-950 font-bold text-sm">⬡</span>
             </div>
             <div className="hidden sm:block">
-              <span style={{ fontFamily:"var(--font-display)", fontWeight:800, fontSize:16, color:"var(--text-primary)" }}>LendFi</span>
-              <span className="ml-1.5 badge badge-cyan" style={{ fontSize:9 }}>SEPOLIA</span>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "var(--text-primary)" }}>LendFi</span>
+              <span className="ml-1.5 badge badge-cyan" style={{ fontSize: 9 }}>SEPOLIA</span>
             </div>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden lg:flex items-center gap-0.5 rounded-xl p-1" style={{ background:"rgba(0,0,0,0.25)", border:"1px solid var(--border)" }}>
+          {/* Desktop nav — scrollable for all 8 items */}
+          <div className="hidden lg:flex items-center gap-0.5 rounded-xl p-1 overflow-x-auto" style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", maxWidth: "60vw" }}>
             {NAV.map(({ href, label }) => {
               const active = pathname === href;
               return (
                 <Link key={href} href={href}
-                  className="rounded-lg px-3 py-2 text-xs transition-all duration-150"
-                  style={{ fontFamily:"var(--font-display)", fontWeight: active ? 700 : 500, background: active ? "var(--cyan)" : "transparent", color: active ? "#030712" : "var(--text-secondary)" }}
-                  onMouseEnter={e => { if (!active) (e.target as HTMLElement).style.color = "var(--text-primary)"; }}
-                  onMouseLeave={e => { if (!active) (e.target as HTMLElement).style.color = "var(--text-secondary)"; }}>
+                  className="rounded-lg px-3 py-2 text-xs whitespace-nowrap transition-all duration-150"
+                  style={{ fontFamily: "var(--font-display)", fontWeight: active ? 700 : 500, background: active ? "var(--cyan)" : "transparent", color: active ? "#030712" : "var(--text-secondary)", textDecoration: "none" }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "var(--text-primary)"; }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)"; }}>
                   {label}
                 </Link>
               );
@@ -74,20 +77,18 @@ export function Navbar() {
 
           {/* Right */}
           <div className="flex items-center gap-2">
-            <button onClick={toggle} className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg transition-all"
-              style={{ background:"rgba(0,0,0,0.2)", border:"1px solid var(--border)", color:"var(--text-secondary)" }}
-              aria-label="Toggle theme">
+            <button onClick={toggle} className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer" }}>
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
             </button>
             <div className="hidden sm:block">
               <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
             </div>
-            {/* Hamburger */}
             <button onClick={() => setOpen(!open)} className="flex lg:hidden h-9 w-9 flex-col items-center justify-center gap-1.5 rounded-lg"
-              style={{ background:"rgba(0,0,0,0.2)", border:"1px solid var(--border)" }}>
-              <span className="block h-px w-4 transition-all" style={{ background:"var(--text-secondary)", transform: open ? "rotate(45deg) translate(2px,2px)" : "" }} />
-              <span className="block h-px w-4 transition-all" style={{ background:"var(--text-secondary)", opacity: open ? 0 : 1 }} />
-              <span className="block h-px w-4 transition-all" style={{ background:"var(--text-secondary)", transform: open ? "rotate(-45deg) translate(2px,-2px)" : "" }} />
+              style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", cursor: "pointer" }}>
+              <span style={{ display: "block", height: 1, width: 16, background: "var(--text-secondary)", transition: "all 0.2s", transform: open ? "rotate(45deg) translate(2px,2px)" : "" }} />
+              <span style={{ display: "block", height: 1, width: 16, background: "var(--text-secondary)", transition: "all 0.2s", opacity: open ? 0 : 1 }} />
+              <span style={{ display: "block", height: 1, width: 16, background: "var(--text-secondary)", transition: "all 0.2s", transform: open ? "rotate(-45deg) translate(2px,-2px)" : "" }} />
             </button>
           </div>
         </div>
@@ -96,21 +97,21 @@ export function Navbar() {
       {/* Mobile menu */}
       <div className={`mobile-menu ${open ? "open" : ""}`}>
         <div className="flex items-center justify-between mb-8">
-          <span style={{ fontFamily:"var(--font-display)", fontWeight:800, fontSize:20, color:"var(--text-primary)" }}>LendFi</span>
-          <button onClick={() => setOpen(false)} style={{ color:"var(--text-muted)", fontSize:24, background:"none", border:"none", cursor:"pointer" }}>✕</button>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "var(--text-primary)" }}>LendFi</span>
+          <button onClick={() => setOpen(false)} style={{ color: "var(--text-muted)", fontSize: 24, background: "none", border: "none", cursor: "pointer" }}>✕</button>
         </div>
         <div className="flex flex-col gap-2 mb-8">
           {NAV.map(({ href, label }) => {
             const active = pathname === href;
             return (
-              <Link key={href} href={href} className="flex items-center gap-3 rounded-xl px-4 py-4 font-semibold transition-all"
-                style={{ fontFamily:"var(--font-display)", fontSize:15, background: active ? "var(--cyan-dim)" : "transparent", color: active ? "var(--cyan)" : "var(--text-secondary)", border:`1px solid ${active ? "var(--border-accent)" : "transparent"}` }}>
+              <Link key={href} href={href} className="flex items-center gap-3 rounded-xl px-4 py-4"
+                style={{ fontFamily: "var(--font-display)", fontWeight: active ? 700 : 500, fontSize: 15, background: active ? "var(--cyan-dim)" : "transparent", color: active ? "var(--cyan)" : "var(--text-secondary)", border: `1px solid ${active ? "var(--border-accent)" : "transparent"}`, textDecoration: "none" }}>
                 {label}
               </Link>
             );
           })}
         </div>
-        <button onClick={toggle} className="btn-ghost flex items-center gap-2 mb-6">
+        <button onClick={toggle} className="btn-ghost flex items-center gap-2 mb-6" style={{ cursor: "pointer" }}>
           {theme === "dark" ? <SunIcon /> : <MoonIcon />}
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </button>

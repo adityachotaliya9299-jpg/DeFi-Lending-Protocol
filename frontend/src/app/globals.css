@@ -387,3 +387,74 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* ── Selection ────────────────────────────────────────────────────────────── */
 ::selection { background: rgba(34,211,238,0.2); color: var(--text-primary); }
+
+/* ── Dark theme quality improvements ─────────────────────────────────────── */
+/* Better card contrast in dark mode */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: var(--transition);
+}
+
+/* Input focus ring */
+.input-focus-border:focus-within {
+  border-color: var(--border-accent) !important;
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.08);
+}
+
+/* Select elements dark mode */
+select {
+  color-scheme: dark;
+}
+
+[data-theme="light"] select {
+  color-scheme: light;
+}
+
+/* Better table rows in dark mode */
+.data-table tbody tr:hover td {
+  background: rgba(255,255,255,0.025);
+}
+
+[data-theme="light"] .data-table tbody tr:hover td {
+  background: rgba(0,0,0,0.025);
+}
+
+/* Input placeholder color fix */
+[data-theme="light"] .input-field {
+  background: rgba(0,0,0,0.04);
+  color: var(--text-primary);
+}
+
+/* Navbar blur background */
+[data-theme="light"] nav {
+  background: rgba(240,244,248,0.85) !important;
+}
+
+/* Code block text in light mode */
+[data-theme="light"] pre {
+  filter: invert(0.92) hue-rotate(180deg);
+}
+
+/* Better section label contrast */
+[data-theme="light"] .section-label {
+  color: #0891b2;
+}
+
+/* Subtle inner shadows for depth in dark mode */
+:root .card {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 0 0 1px var(--border), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* Active tab better contrast */
+.tab.active {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* Mobile menu blur */
+.mobile-menu {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
