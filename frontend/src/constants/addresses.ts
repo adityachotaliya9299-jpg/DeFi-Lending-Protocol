@@ -49,3 +49,10 @@ export function getAddresses(chainId: number) {
     LLINK: LTOKEN_ADDRESSES.LLINK,
   } as const;
 }
+
+// ── Stablecoin system (deployed via DeployStablecoin.s.sol) ──────────────────
+export const STABLECOIN_ADDRESSES = {
+  PUSD:               e("NEXT_PUBLIC_PUSD_ADDRESS"),
+  STABLECOIN_VAULT:   e("NEXT_PUBLIC_STABLECOIN_VAULT"),
+  GOVERNANCE_TIMELOCK:e("NEXT_PUBLIC_GOVERNANCE_TIMELOCK"),
+} as const;

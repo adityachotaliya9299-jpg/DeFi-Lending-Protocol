@@ -105,7 +105,7 @@ contract LiquidationEngine {
         uint256 currentDebt = pool.getUserScaledBorrow(borrower, debtAsset)
             .rayMul(debtRes.borrowIndex);
 
-        uint256 maxClose = currentDebt.percentMul(pool.CLOSE_FACTOR_BPS());
+       uint256 maxClose = currentDebt.percentMul(5_000);
         if (debtAmount > maxClose) debtAmount = maxClose;
 
         uint256 debtUsd         = oracle.getValueInUsd(debtAsset, debtAmount);

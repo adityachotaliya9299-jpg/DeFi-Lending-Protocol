@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ReentrancyGuard}   from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable}          from "@openzeppelin/contracts/utils/Pausable.sol";
 import {AccessControl}     from "@openzeppelin/contracts/access/AccessControl.sol";
 import {SafeERC20}         from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20}            from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -51,7 +52,7 @@ import {EfficiencyMode}      from "../modes/EfficiencyMode.sol";
  *   • Close factor: liquidator can repay at most 50% of debt per call
  *   • Liquidation only when HF < 1.0
  */
-contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanProvider {
+contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, FlashLoanProvider {
     using SafeERC20   for IERC20;
     using WadRayMath  for uint256;
     using PercentageMath for uint256;
@@ -61,6 +62,17 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
     // ─────────────────────────────────────────────────────────────────────────
 
     bytes32 public constant POOL_ADMIN_ROLE = keccak256("POOL_ADMIN_ROLE");
+
+    /**
+     * @notice Guardian can pause/unpause the protocol in an emergency.
+     *         Separate from POOL_ADMIN so a separate multisig can halt
+     *         operations without needing full admin privileges.
+     *
+     *         When paused:  deposit() and borrow() revert immediately.
+     *         When paused:  withdraw() and repay() STILL WORK — users can
+     *                       always recover their funds even during a pause.
+     */
+    bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Constants
@@ -154,6 +166,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _grantRole(POOL_ADMIN_ROLE,    admin_);
+        _grantRole(GUARDIAN_ROLE,      admin_); // admin is also guardian initially
 
         collateralManager = ICollateralManager(collateralManager_);
         oracle            = IPriceOracle(oracle_);
@@ -285,6 +298,31 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  Emergency pause — circuit breaker
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Halt new deposits and borrows immediately.
+     *         Withdrawals and repayments remain available so users can
+     *         always recover their funds.
+     *
+     *         Use cases:
+     *           • Suspected oracle manipulation attack in progress
+     *           • Critical bug discovered before fix is deployed
+     *           • Governance timelock exploit attempt detected
+     */
+    function pause() external onlyRole(GUARDIAN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Resume normal protocol operations.
+     */
+    function unpause() external onlyRole(GUARDIAN_ROLE) {
+        _unpause();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  Core — deposit
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -293,7 +331,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
      *         Receive lTokens representing the deposit + accrued interest.
      */
     function deposit(address asset, uint256 amount)
-        external override nonReentrant
+        external override nonReentrant whenNotPaused
     {
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
@@ -384,7 +422,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, FlashLoanP
      *         Health factor must remain >= 1.0 after the borrow.
      */
     function borrow(address asset, uint256 amount)
-        external override nonReentrant
+        external override nonReentrant whenNotPaused
     {
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
