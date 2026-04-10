@@ -3,14 +3,14 @@
 <div align="center">
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?logo=solidity)](https://soliditylang.org/)
-[![Foundry](https://img.shields.io/badge/Foundry-Tests%20338%20%E2%9C%93-orange)](https://book.getfoundry.sh/)
+[![Tests](https://img.shields.io/badge/Tests-371%20passing-brightgreen)](https://book.getfoundry.sh/)
+[![Network](https://img.shields.io/badge/Sepolia-Verified-blue)](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
-[![Network](https://img.shields.io/badge/Network-Sepolia-blue)](https://sepolia.etherscan.io/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 **A full-stack DeFi lending protocol built from scratch — inspired by Aave v2/v3 and MakerDAO.**
 
-[Live App](https://lendfi.vercel.app) · [Etherscan](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) · [Subgraph](https://thegraph.com/studio)
+[Live App](https://lendfi.vercel.app) · [Etherscan](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) · [Whitepaper](docs/whitepaper.md)
 
 </div>
 
@@ -18,285 +18,200 @@
 
 ## What is LendFi?
 
-LendFi is a production-grade DeFi lending protocol with:
+LendFi is a production-grade, non-custodial DeFi lending protocol with:
 
-- **Deposit** WETH, USDC, or LINK — earn yield via automated interest accrual
-- **Borrow** against your collateral with real Chainlink price feeds
+- **Supply & Borrow** — WETH, USDC, LINK with real Chainlink price feeds
+- **Two-slope interest rates** — kink model identical to Aave v2
+- **E-Mode** — up to 97% LTV for correlated assets (Aave v3-inspired)
+- **Isolation Mode** — debt ceilings for risky assets
 - **Flash Loans** — uncollateralised atomic borrowing (0.09% fee)
-- **pUSD Stablecoin** — mint a CDP-backed stablecoin against WETH (MakerDAO-style)
-- **E-Mode** — 97% LTV for stablecoin-to-stablecoin borrowing (Aave v3-inspired)
-- **Isolation Mode** — risk-capped borrowing for volatile assets
-- **On-chain Governance** — update risk parameters, interest rates, asset configs
-
-Everything is deployed on Sepolia with 338 Foundry tests passing.
+- **Credit Delegation** — lend your borrowing power to trusted addresses (unique differentiator)
+- **pUSD Stablecoin** — MakerDAO-style CDP backed by WETH
+- **48-hour Governance Timelock** — malicious changes can be caught and cancelled
+- **Emergency Pause** — GUARDIAN_ROLE can halt deposits/borrows instantly
+- **Dual Oracle** — Chainlink + Uniswap v3 TWAP fallback
 
 ---
 
 ## Architecture
 
 ```
-defi-lending-protocol/
-├── contracts/
-│   ├── src/
-│   │   ├── math/           WadRayMath.sol, PercentageMath.sol
-│   │   ├── interfaces/     ILendingPool, IPriceOracle, ICollateralManager,
-│   │   │                   IInterestRateModel, IFlashLoanReceiver
-│   │   ├── oracle/         PriceOracle.sol (Chainlink wrapper)
-│   │   ├── interest/       InterestRateModel.sol (two-slope kink model)
-│   │   ├── tokens/         LendingToken.sol (lToken receipt token)
-│   │   ├── core/           LendingPool.sol, CollateralManager.sol,
-│   │   │                   LiquidationEngine.sol, FlashLoanProvider.sol
-│   │   ├── treasury/       ProtocolTreasury.sol
-│   │   ├── governance/     Governance.sol
-│   │   ├── stablecoin/     ProtocolStablecoin.sol, StablecoinVault.sol
-│   │   ├── modes/          IsolationMode.sol, EfficiencyMode.sol
-│   │   └── mocks/          MockChainlinkFeed.sol, MockERC20.sol
-│   └── test/               338 tests across 15 suites
-├── frontend/               Next.js 14
-│   └── src/
-│       ├── app/            9 pages: markets, dashboard, vault, modes,
-│       │                   risk, analytics, flashloan, liquidate, portfolio
-│       ├── components/     ThemeProvider, Navbar, Footer, StatCard,
-│       │                   HealthFactorBar, DepositModal, BorrowModal
-│       ├── hooks/          useProtocol, useScrollAnimation, useTypewriter
-│       ├── constants/      abis, addresses, assets
-│       └── lib/            format.ts, graphql.ts (Apollo Client)
-├── subgraph/               The Graph (11 entities, Sepolia)
-└── audit-notes/            SECURITY.md (10 attack vectors documented)
+contracts/src/
+├── math/           WadRayMath.sol, PercentageMath.sol
+├── interfaces/     ILendingPool, IPriceOracle, ICollateralManager, IInterestRateModel, IFlashLoanReceiver
+├── oracle/         PriceOracle.sol (Chainlink), OracleWithTWAP.sol (Chainlink+TWAP)
+├── interest/       InterestRateModel.sol (two-slope kink)
+├── tokens/         LendingToken.sol (lToken, scaled balances)
+├── core/           LendingPool.sol, CollateralManager.sol,
+│                   LiquidationEngine.sol, FlashLoanProvider.sol,
+│                   CreditDelegation.sol
+├── treasury/       ProtocolTreasury.sol
+├── governance/     Governance.sol, GovernanceTimelock.sol (48h delay)
+├── stablecoin/     ProtocolStablecoin.sol, StablecoinVault.sol
+├── modes/          IsolationMode.sol, EfficiencyMode.sol
+└── mocks/          MockChainlinkFeed.sol, MockERC20.sol
+
+frontend/src/
+├── app/            9 pages: /, /dashboard, /vault, /modes, /risk,
+│                   /analytics, /flashloan, /liquidate, /portfolio
+├── components/     Navbar, Toast, Tooltip, PauseBanner, WrongNetwork,
+│                   HealthFactorBar, StatCard
+├── hooks/          useProtocolData (unified), useTx, useProtocol, useScrollAnimation
+├── constants/      abis, addresses, assets
+└── lib/            format.ts, graphql.ts (Apollo + The Graph)
+
+subgraph/           11 entities, deployed to Subgraph Studio
+docs/               whitepaper.md
 ```
 
 ---
 
 ## Deployed Contracts (Sepolia)
 
-| Contract | Address |
-|---|---|
-| LendingPool | [`0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0`](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) |
-| CollateralManager | [`0x2BA6Be87c33acec211B16163997f66aecf73F467`](https://sepolia.etherscan.io/address/0x2BA6Be87c33acec211B16163997f66aecf73F467) |
-| PriceOracle | [`0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc`](https://sepolia.etherscan.io/address/0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc) |
-| InterestRateModel | [`0x4924f29EDBa2B85dC098E67c1762696456a8b94A`](https://sepolia.etherscan.io/address/0x4924f29EDBa2B85dC098E67c1762696456a8b94A) |
-| LiquidationEngine | [`0x6796313464047CeDcCd4a465A3568F93b38C4c9d`](https://sepolia.etherscan.io/address/0x6796313464047CeDcCd4a465A3568F93b38C4c9d) |
-| Governance | [`0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc`](https://sepolia.etherscan.io/address/0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc) |
-| ProtocolTreasury | [`0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3`](https://sepolia.etherscan.io/address/0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3) |
+| Contract | Address | Status |
+|---|---|---|
+| LendingPool | [`0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0`](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) | ✅ Verified |
+| CollateralManager | [`0x2BA6Be87c33acec211B16163997f66aecf73F467`](https://sepolia.etherscan.io/address/0x2BA6Be87c33acec211B16163997f66aecf73F467) | ✅ Verified |
+| PriceOracle | [`0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc`](https://sepolia.etherscan.io/address/0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc) | ✅ Verified |
+| InterestRateModel | [`0x4924f29EDBa2B85dC098E67c1762696456a8b94A`](https://sepolia.etherscan.io/address/0x4924f29EDBa2B85dC098E67c1762696456a8b94A) | ✅ Verified |
+| LiquidationEngine | [`0x6796313464047CeDcCd4a465A3568F93b38C4c9d`](https://sepolia.etherscan.io/address/0x6796313464047CeDcCd4a465A3568F93b38C4c9d) | ✅ Verified |
+| Governance | [`0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc`](https://sepolia.etherscan.io/address/0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc) | ✅ Verified |
+| ProtocolTreasury | [`0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3`](https://sepolia.etherscan.io/address/0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3) | ✅ Verified |
+| ProtocolStablecoin (pUSD) | [`0x233831a3E0Eb8E76570996bA8889C84C59d49D7E`](https://sepolia.etherscan.io/address/0x233831a3E0Eb8E76570996bA8889C84C59d49D7E) | ✅ Verified |
+| StablecoinVault | [`0x1155Ed037e879DD359097ccC9F15821dA1a712ef`](https://sepolia.etherscan.io/address/0x1155Ed037e879DD359097ccC9F15821dA1a712ef) | ✅ Verified |
+| GovernanceTimelock | [`0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28`](https://sepolia.etherscan.io/address/0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28) | ✅ Verified |
 
 ---
 
-## Core Features
+## Test Suite — 371 Tests (100% Passing)
 
-### Interest Rate Model (Two-Slope Kink)
-
-```
-Borrow Rate
-    │                                    ╱
-    │                                   ╱  Slope 2 (steep)
-    │                   ───────────────╱
-    │                  ╱ Slope 1
-    │─────────────────
-    └──────────────────┬───────────────── Utilization
-                      80% (kink)
+```bash
+cd contracts
+forge test              # run all 371 tests
+forge test -vv          # verbose output
+forge coverage --ir-minimum  # coverage report
 ```
 
-- **Base rate:** 1% APR at 0% utilization
-- **Slope 1:** Linear to 5% APR at the 80% kink
-- **Slope 2:** Steep jump to ~75% APR at 100% — strongly disincentivises overborrowing
-- Supply rate = Borrow rate × Utilization × (1 − Reserve factor)
-
-### Scaled Balances (Same as Aave)
-
-Interest accrues via global index updates. No per-user loops required.
-
-```
-scaledDeposit[user] = deposit / liquidityIndexAtDepositTime
-currentBalance      = scaledDeposit × currentLiquidityIndex
-```
-
-Every deposit/borrow/repay triggers `_accrueInterest()` which updates both the liquidity index and borrow index linearly with `block.timestamp`.
-
-### Flash Loans
-
-```solidity
-interface IFlashLoanReceiver {
-    function executeOperation(
-        address asset,
-        uint256 amount,
-        uint256 fee,        // 0.09% of amount
-        address initiator,
-        bytes calldata params
-    ) external returns (bool);
-}
-```
-
-The pool transfers tokens to your receiver, calls `executeOperation()`, then checks `balanceOf(self) >= original + fee`. If you don't transfer back — entire tx reverts. Fee distributes to depositors via liquidity index bump.
-
-### pUSD CDP (MakerDAO-inspired)
-
-| Parameter | Value |
-|---|---|
-| Min collateralisation ratio | 150% |
-| Liquidation ratio | 130% |
-| Liquidation bonus | 10% |
-| Stability fee | 2% APR |
-| Close factor | 50% per call |
-| Debt ceiling | 1,000,000 pUSD (WETH) |
-
-### E-Mode Categories
-
-| Category | Assets | LTV | Liq. Threshold |
-|---|---|---|---|
-| 0 — Standard | All | Per-asset | Per-asset |
-| 1 — ETH Correlated | WETH, stETH, rETH | **90%** | 93% |
-| 2 — Stablecoins | USDC, USDT, DAI | **97%** | 97.5% |
-| 3 — BTC Correlated | WBTC, tBTC | **88%** | 91% |
-
-### Isolation Mode
-
-Risky assets can only be used as collateral in isolation mode:
-- Can only borrow approved stablecoins (not ETH or other volatile assets)
-- Global debt ceiling caps total exposure to that asset across all users
-
----
-
-## Test Suite
-
-```
-forge test
-```
-
-| Suite | Tests | What it covers |
+| Suite | Tests | Coverage |
 |---|---|---|
 | LendingPool.t.sol | 35 | Core deposit/borrow/repay/liquidate flows |
-| CollateralManager.t.sol | 23 | Config validation, HF calculation, fuzz |
-| EdgeCases.t.sol | 28 | Oracle 0/negative, 99% utilization, price crash |
+| CollateralManager.t.sol | 23 | Config, health factor calculation, fuzz |
+| EdgeCases.t.sol | 28 | Oracle failures, 99% utilization, price crash |
 | Invariants.t.sol | 15 | 10 mathematical invariants + fuzz properties |
 | MultiUser.t.sol | 11 | 5-user simulations, cascade liquidations |
 | FlashLoan.t.sol | 12 | Fee, repayment, failure cases |
 | StablecoinVault.t.sol | 19 | CDP mint/burn, liquidation, stability fee |
-| Modes.t.sol | 18 | E-Mode eligibility, LTV override, isolation |
-| InterestRateModel.t.sol | 28 | Two-slope kink, monotonicity |
-| PriceOracle.t.sol | 29 | Staleness, negative price, WAD normalisation |
+| Modes.t.sol | 18 | E-Mode, isolation, fuzz |
+| GovernanceTimelock.t.sol | 16 | Schedule, execute, cancel, predecessor |
+| InterestRateModel.t.sol | 28 | Two-slope, monotonicity, kink |
+| PriceOracle.t.sol | 29 | Staleness, negative price, round completion |
 | LendingToken.t.sol | 30 | Scaled balance, interest accrual |
-| WadRayMath.t.sol | 30 | Fixed-point arithmetic + fuzz roundtrips |
+| WadRayMath.t.sol | 30 | Fixed-point arithmetic + fuzz |
 | PercentageMath.t.sol | 28 | BPS arithmetic |
 | Governance.t.sol | 16 | Config updates, rate params |
 | ProtocolTreasury.t.sol | 16 | Withdraw, access control |
-| **Total** | **338** | **100% passing** |
-
-```bash
-forge coverage --ir-minimum   # stack-too-deep resolved via --ir-minimum
-```
+| CreditDelegation.t.sol | 17 | Approve, borrow, repay, expiry, fuzz |
+| **Total** | **371** | **100% passing** |
 
 ---
 
-## Getting Started
+## Credit Delegation — The Unique Differentiator
 
-### Prerequisites
+The one feature that separates LendFi from "just another Aave clone":
 
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Node.js](https://nodejs.org/) >= 18
-- [Git](https://git-scm.com/)
+```solidity
+// Alice has 10 WETH deposited → $8,000 borrowing power
+// Alice delegates $5,000 USDC credit to Bob
 
-### Clone & Setup
+alice.approveDelegation(bob, USDC, 5000e18, expiry);
 
-```bash
-git clone https://github.com/adityachotaliya9299-jpg/DeFi-Lending-Protocol
-cd DeFi-Lending-Protocol
+// Bob borrows $5,000 USDC with ZERO collateral of his own
+bob.borrowWithDelegation(alice, USDC, 5000e18);
+// Alice's WETH backs Bob's debt
+// Alice's health factor drops
+// Bob must repay or Alice faces liquidation
 ```
 
-### Contracts
+**Use cases:** Market makers, protocol-to-protocol credit lines, yield strategy vaults.
 
+---
+
+## Interest Rate Model
+
+```
+Borrow Rate
+    │                                          ╱ Slope 2 (75% APR)
+    │                          ───────────────╱
+    │                         ╱ Slope 1 (4%)
+    │────────────────────────
+    └─────────────────────────┬──────────────── Utilization
+                             80% (kink)
+
+supplyRate = borrowRate × utilization × (1 − reserveFactor)
+```
+
+Rates stored in RAY (1e27) for continuous per-second compounding — prevents rounding to zero.
+
+---
+
+## Quick Start
+
+### Prerequisites
+- [Foundry](https://book.getfoundry.sh/)
+- Node.js 18+
+
+### Contracts
 ```bash
 cd contracts
 forge install
 forge build
 forge test
-forge coverage --ir-minimum
 ```
 
 ### Frontend
-
 ```bash
 cd frontend
 npm install
 cp .env.example .env.local
-# Fill in your .env.local (see Environment Variables below)
-npm run dev       # development
-npm run build     # production build
-npm start         # start production server
+# Fill in your .env.local
+npm run dev
 ```
 
 ### Environment Variables
-
 ```env
-# frontend/.env.local
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_id
+NEXT_PUBLIC_ALCHEMY_ID=your_alchemy_key
 
-NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_walletconnect_id
-NEXT_PUBLIC_ALCHEMY_ID=your_alchemy_id
-NEXT_PUBLIC_CHAIN_ID=11155111
-
-# Optional — The Graph subgraph URL
-NEXT_PUBLIC_SUBGRAPH_URL=https://api.studio.thegraph.com/query/...
+# Optional — enables live analytics charts
+NEXT_PUBLIC_SUBGRAPH_URL=https://api.studio.thegraph.com/query/YOUR_ID/...
 ```
-
----
-
-## Deployment
 
 ### Deploy to Sepolia
-
 ```bash
 cd contracts
-
-# Copy and fill in your env
-cp .env.example .env
-
-# Deploy all 7 contracts
-forge script script/Deploy.s.sol \
-  --rpc-url $SEPOLIA_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  --verify
-
-# Setup assets (WETH, USDC, LINK)
-forge script script/SetupAssets.s.sol \
-  --rpc-url $SEPOLIA_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast
-```
-
-### Deploy Subgraph
-
-```bash
-cd subgraph
-npm install -g @graphprotocol/graph-cli
-graph auth YOUR_DEPLOY_KEY
-graph deploy --studio defi-lending-protocol
+source .env
+forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast --verify
+forge script script/SetupAssets.s.sol --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast
+forge script script/DeployStablecoin.s.sol --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast --verify
 ```
 
 ---
 
 ## Security
 
-### Measures Implemented
-
-| Measure | Where |
+| Measure | Implementation |
 |---|---|
-| `ReentrancyGuard` | All external state-mutating functions |
-| CEI pattern | Check → Effects → Interactions throughout |
-| Chainlink staleness check | Every price read in PriceOracle |
-| Close factor (50%) | Prevents full single-call liquidation |
-| Health factor enforcement | Before every borrow and withdrawal |
-| AccessControl roles | Pool admin, configurator, minter |
-| Oracle price guards | Negative, zero, stale, incomplete round |
-| Isolation debt ceiling | Caps max loss from volatile collateral |
+| Reentrancy Guard | All external state-mutating functions |
+| CEI Pattern | Check → Effects → Interactions throughout |
+| Oracle staleness | Heartbeat check on every price read |
+| Oracle TWAP fallback | Uniswap v3 as secondary when Chainlink fails |
+| Close factor | 50% max per liquidation call |
+| Health factor | Enforced before every borrow and withdrawal |
+| Governance timelock | 48h delay — users can exit before changes take effect |
+| Emergency pause | GUARDIAN_ROLE halts deposits/borrows; withdrawals always open |
+| Isolation mode | Global debt ceiling caps exposure to volatile assets |
 
-### Known Limitations (Testnet)
-
-- No governance timelock — parameter changes are immediate
-- Single Chainlink feed per asset — no TWAP fallback
-- pUSD assumes 1:1 USD peg — no stability module (PSM) yet
-- No emergency pause / circuit breaker
-
-See [`audit-notes/SECURITY.md`](audit-notes/SECURITY.md) for full threat model.
+See [`docs/whitepaper.md`](docs/whitepaper.md) for full threat model and attack vector analysis.
 
 ---
 
@@ -304,43 +219,15 @@ See [`audit-notes/SECURITY.md`](audit-notes/SECURITY.md) for full threat model.
 
 | Layer | Technology |
 |---|---|
-| Smart Contracts | Solidity 0.8.24 |
-| Testing | Foundry (forge), 1000 fuzz runs |
-| Oracle | Chainlink AggregatorV3Interface |
+| Smart Contracts | Solidity 0.8.24, Foundry |
+| Oracle | Chainlink AggregatorV3Interface + Uniswap v3 TWAP |
 | Frontend | Next.js 14, TypeScript |
 | Web3 | wagmi v2, viem |
 | Wallet | RainbowKit |
 | Charts | recharts |
-| Indexer | The Graph (GraphQL) |
-| Fonts | Syne, DM Mono, DM Sans |
-| Deploy | Sepolia testnet, Vercel |
-
----
-
-## Frontend Pages
-
-| Route | Description |
-|---|---|
-| `/` | Markets — live prices, supply/borrow actions |
-| `/dashboard` | Manage all positions in one place |
-| `/vault` | pUSD CDP — deposit WETH, mint stablecoin |
-| `/modes` | E-Mode selector + Isolation Mode info |
-| `/risk` | Protocol risk dashboard — utilization, APY, HF distribution |
-| `/analytics` | Historical charts — TVL, APY, borrow volume, liquidations |
-| `/flashloan` | Flash loan docs + arbitrage/liquidation code examples |
-| `/liquidate` | Liquidation engine — search positions, execute liquidations |
-| `/portfolio` | Your positions overview |
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Run tests: `forge test`
-4. Commit: `git commit -m 'feat: add my feature'`
-5. Push: `git push origin feature/my-feature`
-6. Open a Pull Request
+| Indexer | The Graph (GraphQL, Apollo Client) |
+| Fonts | Syne + DM Mono + DM Sans |
+| Network | Sepolia testnet |
 
 ---
 
@@ -351,7 +238,5 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 <div align="center">
-
-Built by [Aditya Chotaliya](https://adityachotaliya.vercel.app/)
-
+Built by <a href="https://adityachotaliya.vercel.app/">Aditya Chotaliya</a>
 </div>
