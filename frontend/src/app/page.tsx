@@ -226,7 +226,7 @@ export default function MarketsPage() {
           backgroundSize: "32px 32px", pointerEvents: "none" }} />
 
         <div style={{ flex: 1, maxWidth: 1280, margin: "0 auto", width: "100%", padding: "64px 24px",
-          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
+          display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 48, alignItems: "center" }}>
 
           {/* Left */}
           <div style={{ display: "flex", flexDirection: "column", gap: 28, position: "relative", zIndex: 1 }}>
@@ -357,7 +357,7 @@ export default function MarketsPage() {
 
       {/* ── Protocol stats ── */}
       <section style={{ padding: "60px 24px 0", maxWidth: 1280, margin: "0 auto" }}>
-        <div className="reveal" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 48 }}>
+        <div className="reveal grid-4">
           <ProtoStat label="Total Value Locked"  value={totals.tvlUsd > 0 ? `$${totals.tvlUsd.toLocaleString("en-US",{maximumFractionDigits:0})}` : "—"} color="var(--cyan)" sub="Across all markets" />
           <ProtoStat label="Total Borrowed"      value={totals.totalBorrowUsd > 0 ? `$${totals.totalBorrowUsd.toLocaleString("en-US",{maximumFractionDigits:0})}` : "—"} color="#f87171" sub="Outstanding debt" />
           <ProtoStat label="Weighted Supply APY" value={totals.weightedSupplyApy > 0 ? `${totals.weightedSupplyApy.toFixed(2)}%` : "—"} color="#34d399" sub="Avg across all assets" />
@@ -394,7 +394,7 @@ export default function MarketsPage() {
               Three steps to earn yield
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
             {[
               { n: "01", icon: "◈", c: "var(--cyan)", title: "Deposit Collateral",
                 body: "Supply WETH, USDC, or LINK to earn interest and unlock borrowing power. Receive lTokens as proof of deposit — automatically accruing yield." },
@@ -430,7 +430,7 @@ export default function MarketsPage() {
               Production-grade tech stack
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
             {[
               { label: "Solidity",         sub: "0.8.24",         icon: "⬡" },
               { label: "Foundry",          sub: "371 Tests",       icon: "⚒" },

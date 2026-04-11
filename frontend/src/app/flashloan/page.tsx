@@ -195,11 +195,22 @@ export default function FlashLoanPage() {
             background: "linear-gradient(180deg, var(--cyan), rgba(34,211,238,0.1))" }} />
           {FLOW.map(({ n, icon, color, title, body }) => (
             <div key={n} style={{ display: "flex", gap: 16, alignItems: "flex-start", paddingLeft: 4 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12,
-                border: `1px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, color, flexShrink: 0, zIndex: 1, background: "var(--bg-base)" }}>
-                {icon}
-              </div>
+              <div style={{ 
+                      width: 40, 
+                      height: 40, 
+                      borderRadius: 12, 
+                      border: `1px solid ${color}30`, 
+                      display: "flex", 
+                      alignItems: "center", 
+                      justifyContent: "center",
+                      fontSize: 16, 
+                      color, 
+                      flexShrink: 0, 
+                      zIndex: 1, 
+                      background: "var(--bg-base)" 
+                    }}>
+                      {icon}
+                    </div>
               <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12,
                 padding: "14px 18px", flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>

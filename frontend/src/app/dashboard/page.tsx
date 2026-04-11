@@ -330,22 +330,34 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
+      <div className="grid-4" style={{ marginBottom:18 }}>
         <Stat label="Total Supplied"  value={formatUsd(tc)} color="var(--cyan)"
           tip="Total USD value of all your deposited collateral" />
         <Stat label="Total Borrowed"  value={formatUsd(td)} color="#f87171"
           tip="Total USD value of outstanding debt across all assets" />
         <Stat label="Available Borrow" value={formatUsd(ab)} color="#34d399"
           tip="How much more you can borrow based on current LTV limits" />
-        <div style={{ background:"var(--bg-card)", border:`1px solid ${hfColor}35`, borderRadius:16, padding:"18px 22px",
-          boxShadow: td>0n ? `0 0 20px ${hfColor}15` : "var(--shadow-card)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:10 }}>
-            <p style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:"0.1em" }}>Health Factor</p>
-            <InfoTip text={"HF = adjusted collateral ÷ total debt.\nBelow 1.0 = liquidatable.\nKeep above 1.5 for safety."} />
+        <div style={{ background:`${hfColor}08`, border:`1px solid ${hfColor}35`, borderRadius:16, padding:"18px 22px",
+          boxShadow: td>0n ? `0 0 24px ${hfColor}18` : "var(--shadow-card)",
+          display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:6 }}>
+              <p style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--text-muted)", textTransform:"uppercase", letterSpacing:"0.1em" }}>Health Factor</p>
+              <InfoTip text={"HF = adjusted collateral ÷ total debt.\nBelow 1.0 = liquidatable.\nKeep above 1.5 for safety."} />
+            </div>
+            <p className="hero-number" style={{ color:hfColor }}>
+              {formatHealthFactor(hf)}
+            </p>
           </div>
-          <p style={{ fontFamily:"var(--font-mono)", fontSize:26, fontWeight:500, color:hfColor, letterSpacing:"-0.02em" }}>
-            {formatHealthFactor(hf)}
-          </p>
+          <div style={{ textAlign:"right", flexShrink:0 }}>
+            <p style={{ fontFamily:"var(--font-mono)", fontSize:11, color:hfColor, marginBottom:4,
+              background:`${hfColor}12`, border:`1px solid ${hfColor}25`, borderRadius:8, padding:"4px 10px" }}>
+              {hfNum>=999?"No borrows":hfNum>=2?"Very Safe":hfNum>=1.5?"Safe":hfNum>=1.2?"Monitor":hfNum>=1.05?"At Risk":"Liquidatable"}
+            </p>
+            <p style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--text-muted)" }}>
+              {td>0n ? "Active position" : "No borrows yet"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -364,7 +376,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Risk tips */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginTop:24 }}>
+      <div className="grid-3" style={{ marginTop:24 }}>
         {[
           { c:"var(--cyan)", icon:"◈", t:"Supply first", b:"Deposit an asset as collateral before you can borrow. Your health factor starts at ∞." },
           { c:"#a78bfa",    icon:"⬡", t:"Monitor HF",   b:"Health factor below 1.5 means you're vulnerable to price swings. Add collateral to stay safe." },

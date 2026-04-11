@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from "react";
 import { useAccount, useChainId, useReadContract } from "wagmi";
-import { LENDING_POOL_ABI } from "@/constants/abis";
+import { LENDING_POOL_ABI,LENDING_POOL_EXTENDED_ABI } from "@/constants/abis";
 import { getAddresses } from "@/constants/addresses";
 import { useTx } from "@/hooks/useTx";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+
 
 // ── E-Mode categories ─────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -134,9 +135,16 @@ export default function ModesPage() {
   let poolAddr: `0x${string}` = "0x0";
   try { poolAddr = getAddresses(chainId).LENDING_POOL; } catch {}
 
+  // Read current user E-Mode from chain
   const { address } = useAccount();
-
-  const currentEModeNum: number | null = null;
+  const { data: currentEMode } = useReadContract({
+  address: poolAddr,
+  abi: LENDING_POOL_EXTENDED_ABI,  
+  functionName: "userEModeCategory",
+  args: address ? [address] : undefined,
+  query: { enabled: !!address && poolAddr !== "0x0" },
+});
+  const currentEModeNum = currentEMode !== undefined ? Number(currentEMode) : null;
 
   const handleActivate = useCallback(() => {
     if (!isConnected) return;
@@ -259,7 +267,7 @@ export default function ModesPage() {
                           <span style={{ fontFamily:"var(--font-mono)", fontSize:28, fontWeight:500, color:cat.color }}>{cat.ltv}</span>
                         </div>
                       </div>
-                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:8 }}>
                         {[["Liq. Threshold",cat.liqThresh],["Liq. Bonus",cat.liqBonus]].map(([l,v])=>(
                           <div key={l as string} style={{ background:"rgba(0,0,0,0.2)", borderRadius:10, padding:"10px 12px" }}>
                             <p style={{ fontFamily:"var(--font-mono)", fontSize:9, color:"var(--text-muted)", textTransform:"uppercase", marginBottom:3 }}>{l}</p>

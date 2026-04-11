@@ -22,8 +22,8 @@ function HFBadge({ hf }: { hf: number }) {
 
 function LiqRow({ addr, hf }: { addr: string; hf: number }) {
   const [amount, setAmount] = useState("");
-  const [debtAsset, setDebtAsset] = useState<`0x${string}`>(SUPPORTED_ASSETS[1].address as `0x${string}`);
-  const [collAsset, setCollAsset] = useState<`0x${string}`>(SUPPORTED_ASSETS[0].address as `0x${string}`);
+  const [debtAsset, setDebtAsset] = useState(SUPPORTED_ASSETS[1].address);
+  const [collAsset, setCollAsset] = useState(SUPPORTED_ASSETS[0].address);
   const chainId = useChainId();
   const { writeContract, data: txHash } = useWriteContract();
   const { isLoading } = useWaitForTransactionReceipt({ hash: txHash });
@@ -53,10 +53,10 @@ function LiqRow({ addr, hf }: { addr: string; hf: number }) {
 
         {canLiquidate ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10 }}>
               <div>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>Repay (debt asset)</p>
-                <select value={debtAsset} onChange={e => setDebtAsset(e.target.value as `0x${string}`)}
+                <select value={debtAsset} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDebtAsset(e.target.value as `0x${string}`)}
                   style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 10,
                     padding: "10px 12px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-primary)", outline: "none" }}>
                   {SUPPORTED_ASSETS.map(a => <option key={a.symbol} value={a.address}>{a.symbol}</option>)}
@@ -64,7 +64,7 @@ function LiqRow({ addr, hf }: { addr: string; hf: number }) {
               </div>
               <div>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6 }}>Receive (collateral)</p>
-                <select value={collAsset} onChange={e => setCollAsset(e.target.value as `0x${string}`)}
+                <select value={collAsset} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCollAsset(e.target.value as `0x${string}`)}
                   style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 10,
                     padding: "10px 12px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-primary)", outline: "none" }}>
                   {SUPPORTED_ASSETS.filter(a => a.address !== debtAsset).map(a => <option key={a.symbol} value={a.address}>{a.symbol}</option>)}
@@ -72,7 +72,7 @@ function LiqRow({ addr, hf }: { addr: string; hf: number }) {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 14px", gap: 8 }}>
-              <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+              <input type="number" value={amount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
                 placeholder="Repay amount" style={{ flex: 1, background: "transparent", border: "none", outline: "none",
                   fontFamily: "var(--font-mono)", fontSize: 18, color: "var(--text-primary)" }} />
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "3px 8px" }}>
@@ -156,7 +156,7 @@ export default function LiquidatePage() {
       </div>
 
       {/* Params */}
-      <div className="reveal reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 32 }}>
+      <div className="reveal reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 32 }}>
         {[
           { label: "Liq. Threshold", value: "< 1.0 HF",  color: "#ef4444"      },
           { label: "Liquidation Bonus", value: "8%",     color: "#34d399"      },
@@ -176,7 +176,7 @@ export default function LiquidatePage() {
           Check any position
         </p>
         <div style={{ display: "flex", gap: 10 }}>
-          <input value={search} onChange={e => setSearch(e.target.value)}
+          <input value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSearch()}
             placeholder="0x... wallet address"
             style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 12,

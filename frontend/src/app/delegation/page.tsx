@@ -326,7 +326,7 @@ export default function DelegationPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, alignItems: "start" }}>
 
         {/* LEFT COLUMN */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

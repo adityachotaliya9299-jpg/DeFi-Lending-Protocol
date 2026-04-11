@@ -107,7 +107,7 @@ export default function VaultPage() {
       </div>
 
       {/* Key params */}
-      <div className="reveal reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 32 }}>
+      <div className="reveal reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 32 }}>
         {[
           { label: "Min Ratio",    value: "150%",   color: "var(--cyan)", sub: "Minting floor"         },
           { label: "Liq Ratio",    value: "130%",   color: "#ef4444",     sub: "Liquidation trigger"   },
@@ -122,7 +122,7 @@ export default function VaultPage() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 380px", gap: 24, alignItems: "start" }}>
 
         {/* Left — position + action */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -161,7 +161,7 @@ export default function VaultPage() {
               </div>
 
               {/* Position stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10, marginTop: 20 }}>
                 {[
                   { label: "Collateral",   value: `${MOCK_COLL} WETH`,            color: "var(--cyan)"  },
                   { label: "Debt (pUSD)",  value: `${MOCK_DEBT.toLocaleString()}`, color: "#f87171"      },
