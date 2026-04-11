@@ -26,8 +26,8 @@ const LINKS = {
 const STATS = [
   { label: "Total Assets",  value: "3"       },
   { label: "Network",       value: "Sepolia" },
-  { label: "Tests",         value: "235"     },
-  { label: "Contracts",     value: "7"       },
+  { label: "Tests",         value: "371"     },
+  { label: "Contracts",     value: "10"       },
 ];
 
 export function Footer() {

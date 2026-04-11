@@ -13,8 +13,9 @@ const NAV = [
   { href: "/modes",      label: "E-Mode"     },
   { href: "/risk",       label: "Risk"       },
   { href: "/analytics",  label: "Analytics"  },
-  { href: "/flashloan",  label: "Flash Loans"},
-  { href: "/liquidate",  label: "Liquidate"  },
+  { href: "/flashloan",  label: "Flash Loans" },
+  { href: "/liquidate",  label: "Liquidate"   },
+  { href: "/delegation", label: "Delegation"  },
 ];
 
 function SunIcon() {

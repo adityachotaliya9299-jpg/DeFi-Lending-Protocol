@@ -1,3 +1,5 @@
+// Minimal ABIs — only the functions the frontend calls.
+// Generate full ABIs with: forge build && cat out/LendingPool.sol/LendingPool.json | jq .abi
 
 export const LENDING_POOL_ABI = [
   // View
@@ -140,4 +142,65 @@ export const LENDING_POOL_EXTENDED_ABI = [
     outputs: [{ name: "", type: "uint256" }] },
   { name: "FLASH_LOAN_FEE_BPS", type: "function", stateMutability: "view",
     inputs: [], outputs: [{ name: "", type: "uint256" }] },
+] as const;
+
+export const CREDIT_DELEGATION_ABI = [
+  // View
+  { name: "availableCredit", type: "function", stateMutability: "view",
+    inputs: [
+      { name: "delegator",  type: "address" },
+      { name: "delegatee",  type: "address" },
+      { name: "asset",      type: "address" },
+    ], outputs: [{ name: "", type: "uint256" }] },
+  { name: "getDelegation", type: "function", stateMutability: "view",
+    inputs: [
+      { name: "delegator",  type: "address" },
+      { name: "delegatee",  type: "address" },
+      { name: "asset",      type: "address" },
+    ], outputs: [{ name: "", type: "tuple", components: [
+      { name: "amount", type: "uint256" },
+      { name: "used",   type: "uint256" },
+      { name: "expiry", type: "uint256" },
+      { name: "active", type: "bool"    },
+    ]}] },
+  { name: "getDelegatorsOf", type: "function", stateMutability: "view",
+    inputs: [{ name: "delegatee", type: "address" }],
+    outputs: [{ name: "", type: "address[]" }] },
+  // Write
+  { name: "approveDelegation", type: "function", stateMutability: "nonpayable",
+    inputs: [
+      { name: "delegatee", type: "address" },
+      { name: "asset",     type: "address" },
+      { name: "amount",    type: "uint256" },
+      { name: "expiry",    type: "uint256" },
+    ], outputs: [] },
+  { name: "revokeDelegation", type: "function", stateMutability: "nonpayable",
+    inputs: [{ name: "delegatee", type: "address" }, { name: "asset", type: "address" }],
+    outputs: [] },
+  { name: "borrowWithDelegation", type: "function", stateMutability: "nonpayable",
+    inputs: [
+      { name: "delegator", type: "address" },
+      { name: "asset",     type: "address" },
+      { name: "amount",    type: "uint256" },
+    ], outputs: [] },
+  { name: "repayDelegation", type: "function", stateMutability: "nonpayable",
+    inputs: [
+      { name: "delegator", type: "address" },
+      { name: "asset",     type: "address" },
+      { name: "amount",    type: "uint256" },
+    ], outputs: [] },
+  // Events
+  { name: "DelegationCreated", type: "event", inputs: [
+    { name: "delegator", type: "address", indexed: true },
+    { name: "delegatee", type: "address", indexed: true },
+    { name: "asset",     type: "address", indexed: true },
+    { name: "amount",    type: "uint256" },
+    { name: "expiry",    type: "uint256" },
+  ]},
+  { name: "DelegatedBorrow", type: "event", inputs: [
+    { name: "delegator", type: "address", indexed: true },
+    { name: "delegatee", type: "address", indexed: true },
+    { name: "asset",     type: "address", indexed: true },
+    { name: "amount",    type: "uint256" },
+  ]},
 ] as const;
