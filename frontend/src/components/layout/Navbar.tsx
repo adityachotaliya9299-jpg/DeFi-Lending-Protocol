@@ -416,6 +416,7 @@ export function Navbar() {
         </div>
       </header>
 
+        {pathname !== "/" && <div style={{ height: "104px" }} />}
       {/* Mobile Slide-over Menu */}
       <div className={`mobile-menu-overlay ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
       <aside className={`mobile-menu ${mobileOpen ? "open" : ""}`}>
