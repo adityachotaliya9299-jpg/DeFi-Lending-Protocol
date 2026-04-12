@@ -386,7 +386,7 @@ export default function MarketsPage() {
       </section>
 
        {/* ── How it works ── */}
-      <section style={{ padding: "80px 24px", position: "relative" }}>
+     <section style={{ padding: "80px 24px", position: "relative" }}>
         {/* Subtle background gradient to frame the section */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "linear-gradient(180deg, transparent 0%, rgba(34,211,238,0.03) 50%, transparent 100%)", pointerEvents: "none" }} />
         
@@ -405,10 +405,19 @@ export default function MarketsPage() {
               { n: "03", title: "Earn & Delegate", body: "Earn yield automatically via scaled balances. Or delegate your borrowing power to a trusted address." },
             ].map(({ n, title, body }, i) => (
               <div key={n} className={`reveal reveal-delay-${i+1} glass-card`} style={{ padding: 40, position: "relative", overflow: "hidden" }}>
-                {/* Massive, faint background number */}
-                <span style={{ position: "absolute", top: -20, right: -10, fontSize: "120px", fontWeight: 900, color: "rgba(255,255,255,0.03)", fontFamily: "var(--font-display)", lineHeight: 1, pointerEvents: "none" }}>{n}</span>
+                
+                {/* Fixed Massive, faint background number using theme variables */}
+                <span style={{ 
+                  position: "absolute", top: -20, right: -10, fontSize: "120px", fontWeight: 900, 
+                  color: "var(--text-primary)", opacity: 0.04, /* <-- FIX IS HERE */
+                  fontFamily: "var(--font-display)", lineHeight: 1, pointerEvents: "none" 
+                }}>
+                  {n}
+                </span>
+
                 {/* Cyan title */}
                 <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 24, color: "var(--cyan)", marginBottom: 16, position: "relative", zIndex: 1 }}>{title}</h3>
+                
                 {/* Body text */}
                 <p style={{ fontSize: 15, color: "var(--text-muted)", lineHeight: 1.8, position: "relative", zIndex: 1 }}>{body}</p>
               </div>
@@ -416,6 +425,12 @@ export default function MarketsPage() {
           </div>
         </div>
       </section>
+
+
+
+
+
+
 
       {/* ── Tech stack ── */}
       <section style={{ padding: "60px 24px" }}>
