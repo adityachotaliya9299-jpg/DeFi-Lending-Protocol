@@ -36,9 +36,9 @@ export function Footer() {
       {/* --- Footer Styles --- */}
       <style>{`
         .footer-glass {
-          background: rgba(15, 15, 20, 0.4);
+          background: var(--bg-card);
           backdrop-filter: blur(20px);
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: 1px solid var(--border);
         }
         .footer-glow-line {
           position: absolute;
@@ -49,15 +49,16 @@ export function Footer() {
           box-shadow: 0 0 20px rgba(34,211,238,0.5);
         }
         .stat-glass-pill {
-          background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
-          border: 1px solid rgba(255,255,255,0.05);
+          background: var(--bg-base);
+          border: 1px solid var(--border);
           border-radius: 20px;
           transition: all 0.3s ease;
         }
         .stat-glass-pill:hover {
-          background: linear-gradient(180deg, rgba(34,211,238,0.05) 0%, transparent 100%);
-          border-color: rgba(34,211,238,0.2);
+          background: var(--bg-card);
+          border-color: rgba(34,211,238,0.4);
           transform: translateY(-2px);
+          box-shadow: 0 4px 20px rgba(34,211,238,0.1);
         }
         .footer-link {
           color: var(--text-muted);
@@ -69,7 +70,6 @@ export function Footer() {
         .footer-link:hover {
           color: var(--cyan);
           transform: translateX(4px);
-          text-shadow: 0 0 10px rgba(34,211,238,0.3);
         }
         .footer-micro-label {
           font-family: var(--font-mono);
@@ -85,13 +85,13 @@ export function Footer() {
         <div className="mx-auto max-w-7xl px-6">
 
           {/* ── Stats Row ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-12 mb-12" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-12 mb-12" style={{ borderBottom: "1px solid var(--border)" }}>
             {STATS.map(({ label, value }) => (
               <div key={label} className="stat-glass-pill flex flex-col items-center justify-center py-6 px-4">
-                <span style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 700, color: "var(--text-primary)", textShadow: "0 0 20px rgba(255,255,255,0.2)" }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 700, color: "var(--text-primary)" }}>
                   {value}
                 </span>
-                <span className="footer-micro-label mt-2" style={{ color: "var(--cyan)", opacity: 0.8 }}>
+                <span className="footer-micro-label mt-2" style={{ color: "var(--cyan)" }}>
                   {label}
                 </span>
               </div>
@@ -105,7 +105,7 @@ export function Footer() {
             <div className="col-span-2">
               <div className="flex items-center gap-3 mb-5">
                 <div className="h-10 w-10 flex items-center justify-center rounded-xl"
-                  style={{ background: "linear-gradient(135deg, var(--cyan), #818cf8)", boxShadow: "0 0 20px rgba(34,211,238,0.2)" }}>
+                  style={{ background: "linear-gradient(135deg, var(--cyan), #818cf8)", boxShadow: "0 4px 14px rgba(34,211,238,0.2)" }}>
                   <span className="text-slate-950 font-black text-lg">⬡</span>
                 </div>
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
@@ -118,7 +118,7 @@ export function Footer() {
               </p>
               
               {/* Live Status Indicator */}
-              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full" style={{ background: "rgba(52,211,153,0.05)", border: "1px solid rgba(52,211,153,0.1)" }}>
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border" style={{ background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.2)" }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 10px #34d399", animation: "blink 2s infinite" }} />
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600, color: "#34d399", letterSpacing: "0.05em" }}>
                   OPERATIONAL ON SEPOLIA
@@ -155,7 +155,7 @@ export function Footer() {
 
           {/* ── Bottom Bar ── */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+            style={{ borderTop: "1px solid var(--border)" }}>
 
             {/* Built by Signature */}
             <p style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-muted)" }}>
@@ -175,19 +175,19 @@ export function Footer() {
                   textDecoration: "none",
                   transition: "all 0.2s",
                 }}
-                onMouseEnter={e => { (e.currentTarget.style.filter = "brightness(1.2)"); (e.currentTarget.style.textShadow = "0 0 10px rgba(34,211,238,0.4)"); }}
-                onMouseLeave={e => { (e.currentTarget.style.filter = "none"); (e.currentTarget.style.textShadow = "none"); }}
+                onMouseEnter={e => { (e.currentTarget.style.filter = "brightness(1.1)"); }}
+                onMouseLeave={e => { (e.currentTarget.style.filter = "none"); }}
               >
                 Aditya Chotaliya
               </a>
             </p>
 
             {/* Testnet Warning Badge */}
-            <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.15)" }}>
+            <div className="flex items-center gap-3 px-4 py-2 rounded-xl border" style={{ background: "rgba(245,158,11,0.05)", borderColor: "rgba(245,158,11,0.2)" }}>
               <span style={{ fontSize: 16 }}>⚠️</span>
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Testnet Only</span>
-                <span className="hidden sm:block" style={{ color: "rgba(255,255,255,0.2)" }}>|</span>
+                <span className="hidden sm:block" style={{ color: "var(--border)" }}>|</span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
                   Not audited. Do not use real funds.
                 </span>
