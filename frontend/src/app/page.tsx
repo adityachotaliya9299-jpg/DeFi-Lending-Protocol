@@ -355,7 +355,7 @@ export default function MarketsPage() {
         </div>
       </section>
 
-      {/* ── Protocol stats ── */}
+     {/* ── Protocol stats ── */}
       <section style={{ padding: "60px 24px 0", maxWidth: 1280, margin: "0 auto" }}>
         <div className="reveal grid-4">
           <ProtoStat label="Total Value Locked"  value={totals.tvlUsd > 0 ? `$${totals.tvlUsd.toLocaleString("en-US",{maximumFractionDigits:0})}` : "—"} color="var(--cyan)" sub="Across all markets" />
@@ -385,36 +385,32 @@ export default function MarketsPage() {
         </div>
       </section>
 
-      {/* ── How it works ── */}
-      <section style={{ padding: "60px 24px", background: "rgba(0,0,0,0.12)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-          <div className="reveal" style={{ textAlign: "center", marginBottom: 48 }}>
-            <p className="section-label" style={{ marginBottom: 8 }}>How it works</p>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(1.6rem,3.5vw,2.2rem)", color: "var(--text-primary)" }}>
+       {/* ── How it works ── */}
+      <section style={{ padding: "80px 24px", position: "relative" }}>
+        {/* Subtle background gradient to frame the section */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "linear-gradient(180deg, transparent 0%, rgba(34,211,238,0.03) 50%, transparent 100%)", pointerEvents: "none" }} />
+        
+        <div style={{ maxWidth: 1280, margin: "0 auto", position: "relative", zIndex: 1 }}>
+          <div className="reveal" style={{ textAlign: "center", marginBottom: 64 }}>
+            <p className="section-label" style={{ marginBottom: 8, textAlign: "center" }}>Process</p>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(2rem,4vw,3rem)", color: "var(--text-primary)" }}>
               Three steps to earn yield
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 24 }}>
             {[
-              { n: "01", icon: "◈", c: "var(--cyan)", title: "Deposit Collateral",
-                body: "Supply WETH, USDC, or LINK to earn interest and unlock borrowing power. Receive lTokens as proof of deposit — automatically accruing yield." },
-              { n: "02", icon: "⌁", c: "#a78bfa", title: "Borrow Assets",
-                body: "Borrow against your collateral up to the LTV limit. Health factor must stay above 1.0. E-Mode unlocks up to 97% LTV for correlated assets." },
-              { n: "03", icon: "⬡", c: "#34d399", title: "Earn & Delegate",
-                body: "Earn yield automatically via scaled balances. Or delegate your borrowing power to a trusted address — the credit delegation primitive." },
-            ].map(({ n, icon, c, title, body }, i) => (
-              <div key={n} className={`reveal reveal-delay-${i+1} card`} style={{ padding: 28 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                    <div style={{ width: 46, height: 46, borderRadius: 13, background: `${c}15`, border: `1px solid ${c}30`,
-                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: c }}>{icon}</div>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "1.4rem", fontWeight: 500, color: c, opacity: 0.18 }}>{n}</span>
-                  </div>
-                  <div>
-                    <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "var(--text-primary)", marginBottom: 8 }}>{title}</h3>
-                    <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.75 }}>{body}</p>
-                  </div>
-                </div>
+              { n: "01", title: "Deposit Collateral", body: "Supply WETH, USDC, or LINK to earn interest and unlock borrowing power. Receive lTokens automatically accruing yield." },
+              { n: "02", title: "Borrow Assets", body: "Borrow against your collateral up to the LTV limit. Health factor must stay above 1.0. E-Mode unlocks up to 97% LTV." },
+              { n: "03", title: "Earn & Delegate", body: "Earn yield automatically via scaled balances. Or delegate your borrowing power to a trusted address." },
+            ].map(({ n, title, body }, i) => (
+              <div key={n} className={`reveal reveal-delay-${i+1} glass-card`} style={{ padding: 40, position: "relative", overflow: "hidden" }}>
+                {/* Massive, faint background number */}
+                <span style={{ position: "absolute", top: -20, right: -10, fontSize: "120px", fontWeight: 900, color: "rgba(255,255,255,0.03)", fontFamily: "var(--font-display)", lineHeight: 1, pointerEvents: "none" }}>{n}</span>
+                {/* Cyan title */}
+                <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 24, color: "var(--cyan)", marginBottom: 16, position: "relative", zIndex: 1 }}>{title}</h3>
+                {/* Body text */}
+                <p style={{ fontSize: 15, color: "var(--text-muted)", lineHeight: 1.8, position: "relative", zIndex: 1 }}>{body}</p>
               </div>
             ))}
           </div>
@@ -452,3 +448,6 @@ export default function MarketsPage() {
     </>
   );
 }
+
+
+
