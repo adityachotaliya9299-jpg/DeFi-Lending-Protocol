@@ -27,7 +27,7 @@ function utilColor(pct: number) {
   return "#10b981"; // Emerald
 }
 
-// ── Custom Tooltip (Fixes the vertical text bug) ──
+
 function LocalTip({ text }: { text: string }) {
   return (
     <div className="custom-tip-container">
@@ -129,7 +129,6 @@ function AssetRiskCard({ asset }: { asset: AssetInfo }) {
         </div>
       </div>
 
-      {/* 4-Stat Grid (Fixed to wrap properly) */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         {[
           { label: "TVL",        value: tvlUsd>0 ? `$${tvlUsd.toLocaleString("en-US",{maximumFractionDigits:0})}` : "—", color: "var(--text-primary)", tip: "Total deposits in USD" },
