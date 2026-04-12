@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits } from "viem";
+import { useState, useMemo } from "react";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
+// --- ABIs & Constants ---
 const VAULT_ABI = [
   { name: "depositAndMint",     type: "function", inputs: [{ name: "collateral", type: "address" }, { name: "collateralAmount", type: "uint256" }, { name: "pUSDAmount", type: "uint256" }], outputs: [], stateMutability: "nonpayable" },
   { name: "mintPUSD",           type: "function", inputs: [{ name: "collateral", type: "address" }, { name: "pUSDAmount", type: "uint256" }], outputs: [], stateMutability: "nonpayable" },
@@ -21,40 +21,68 @@ const WETH = "0xdd13E55209Fd76AfE204dBda4007C227904f0a81" as `0x${string}`;
 const VAULT_ADDR = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 const WETH_PRICE = 2000;
 
-function getRatioState(ratio: number) {
-  if (ratio === 0)    return { color: "var(--text-muted)", label: "—",            glow: "transparent" };
-  if (ratio >= 200)   return { color: "#34d399",           label: "Safe",          glow: "rgba(52,211,153,0.15)" };
-  if (ratio >= 150)   return { color: "var(--cyan)",       label: "Healthy",       glow: "rgba(34,211,238,0.12)" };
-  if (ratio >= 130)   return { color: "#f59e0b",           label: "At Risk",       glow: "rgba(245,158,11,0.15)" };
-  return               { color: "#ef4444",                 label: "Liquidatable",  glow: "rgba(239,68,68,0.15)" };
+// --- Helpers ---
+function getRatioInfo(ratio: number) {
+  if (ratio === 0)    return { color: "var(--text-muted)", label: "No Debt" };
+  if (ratio >= 200)   return { color: "#10b981", label: "Safe" };
+  if (ratio >= 150)   return { color: "var(--cyan)", label: "Healthy" };
+  if (ratio >= 130)   return { color: "#f59e0b", label: "At Risk" };
+  return               { color: "#ef4444", label: "Liquidatable" };
 }
 
-function InputBox({ label, value, onChange, token, max, onMax }: {
-  label: string; value: string; onChange: (v: string) => void;
-  token: string; max?: string; onMax?: () => void;
-}) {
+// --- Components ---
+function ArcGauge({ ratio }: { ratio: number }) {
+  const info = getRatioInfo(ratio);
+  const radius = 80;
+  const circumference = Math.PI * radius; // Half circle
+  const cappedRatio = Math.min(Math.max(ratio, 0), 300); // Map 0-300%
+  const strokeDashoffset = circumference - (cappedRatio / 300) * circumference;
+
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
-        {max && onMax && (
-          <button onClick={onMax} style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--cyan)", background: "none", border: "none", cursor: "pointer" }}>
-            MAX: {max}
-          </button>
-        )}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px", gap: 10 }}
-        className="input-focus-border">
-        <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0.00"
-          style={{ flex: 1, background: "transparent", border: "none", outline: "none",
-            fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 500, color: "var(--text-primary)" }} />
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-muted)",
-          background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "4px 10px", flexShrink: 0 }}>{token}</span>
+    <div className="gauge-container">
+      <svg width="200" height="110" viewBox="0 0 200 110">
+        {/* Background Arc */}
+        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--border)" strokeWidth="12" strokeLinecap="round" />
+        {/* Progress Arc */}
+        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={info.color} strokeWidth="12" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={ratio === 0 ? circumference : strokeDashoffset}
+          style={{ transition: "stroke-dashoffset 1s ease-in-out, stroke 0.3s ease" }} />
+      </svg>
+      <div className="gauge-content">
+        <span className="gauge-value" style={{ color: info.color }}>{ratio}%</span>
+        <span className="gauge-label">{info.label}</span>
       </div>
     </div>
   );
 }
 
+function ModernInput({ label, value, onChange, symbol, max, onMax }: { 
+  label: string; 
+  value: string; 
+  onChange: (v:string)=>void; 
+  symbol: string; 
+  max?: string; // <-- Added this missing type definition
+  onMax?: ()=>void 
+}) {
+  return (
+    <div className="input-group">
+      <div className="input-header">
+        <label>{label}</label>
+        {onMax && (
+          <button onClick={onMax} className="max-btn">
+            MAX {max ? `${max}` : ""}
+          </button>
+        )}
+      </div>
+      <div className="input-box">
+        <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0.00" />
+        <span className="input-symbol">{symbol}</span>
+      </div>
+    </div>
+  );
+}
+
+// --- Main Page ---
 export default function VaultPage() {
   useScrollAnimation();
   const { address, isConnected } = useAccount();
@@ -67,269 +95,259 @@ export default function VaultPage() {
   const { writeContract, data: txHash } = useWriteContract();
   const { isLoading: pending } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // Live ratio calculation
+  // Calculations
   const collNum  = parseFloat(collAmt  || "0");
   const mintNum  = parseFloat(mintAmt  || "0");
   const collUsd  = collNum * WETH_PRICE;
   const previewRatio = mintNum > 0 ? Math.round((collUsd / mintNum) * 100) : 0;
-  const ratioState = getRatioState(previewRatio);
-
-  // Mock position (replace with actual contract reads)
+  
+  // Mock Data
   const MOCK_COLL = 1.5;
   const MOCK_DEBT = 1500;
   const MOCK_RATIO = Math.round((MOCK_COLL * WETH_PRICE / MOCK_DEBT) * 100);
-  const posState = getRatioState(MOCK_RATIO);
-
-  const TABS = [
-    { id: "open"   as const, label: "Open Vault",  color: "var(--cyan)"  },
-    { id: "manage" as const, label: "Manage",      color: "#a78bfa"      },
-    { id: "close"  as const, label: "Close",       color: "#f59e0b"      },
-  ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 md:px-6 py-10">
+    <>
+      <style>{`
+        /* --- Fully Responsive, Theme-Aware CSS --- */
+        .vault-layout {
+          display: grid;
+          grid-template-columns: 1fr 400px;
+          gap: 24px;
+          align-items: start;
+        }
 
-      {/* Header */}
-      <div className="reveal mb-10">
-        <p className="section-label mb-1">pUSD Stablecoin</p>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+        .card-surface {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 32px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.05);
+        }
+
+        /* Gauge */
+        .gauge-container { position: relative; width: 200px; height: 110px; margin: 0 auto; }
+        .gauge-content { position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; }
+        .gauge-value { font-family: var(--font-display); font-size: 40px; font-weight: 800; line-height: 1; }
+        .gauge-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+
+        /* Metrics Grid */
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
+        .metric-box { background: var(--bg-base); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+        .metric-title { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+        .metric-val { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--text-primary); }
+
+        /* Tabs */
+        .pill-tabs { display: flex; background: var(--bg-base); border-radius: 14px; padding: 6px; border: 1px solid var(--border); margin-bottom: 24px; }
+        .pill-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; background: transparent; color: var(--text-muted); font-family: var(--font-display); font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .pill-btn.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid var(--border); }
+
+        /* Inputs */
+        .input-group { margin-bottom: 20px; }
+        .input-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .input-header label { font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .max-btn { background: none; border: none; color: var(--cyan); font-family: var(--font-mono); font-size: 11px; font-weight: 600; cursor: pointer; }
+        .input-box { display: flex; align-items: center; background: var(--bg-base); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; transition: border-color 0.2s; }
+        .input-box:focus-within { border-color: var(--cyan); }
+        .input-box input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-family: var(--font-mono); font-size: 20px; font-weight: 500; }
+        .input-symbol { background: var(--bg-card); border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); }
+
+        /* Buttons */
+        .action-btn { width: 100%; padding: 16px; border-radius: 14px; border: none; font-family: var(--font-display); font-weight: 700; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background: var(--text-primary); color: var(--bg-base); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Receipt */
+        .receipt-box { background: var(--bg-base); border: 1px dashed var(--border); border-radius: 14px; padding: 16px; margin-bottom: 20px; }
+        .receipt-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .receipt-row:last-child { margin-bottom: 0; }
+        .receipt-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+        .receipt-val { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+        /* Mobile Breakpoints */
+        @media (max-width: 900px) {
+          .vault-layout { grid-template-columns: 1fr; }
+          .metrics-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      <div className="mx-auto max-w-7xl px-4 md:px-6 py-12">
+        
+        {/* Header Section */}
+        <div className="reveal flex flex-col md:flex-row justify-between md:items-center gap-6 mb-12">
           <div>
-            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(1.6rem,3vw,2.1rem)", color: "var(--text-primary)", marginBottom: 6 }}>
-              Collateralised Debt Positions
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(2rem, 4vw, 2.8rem)", color: "var(--text-primary)", letterSpacing: "-0.02em", marginBottom: 8 }}>
+              CDP Vault
             </h1>
-            <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 520, lineHeight: 1.7 }}>
-              Deposit WETH, mint <strong style={{ color: "var(--cyan)" }}>pUSD</strong> stablecoins. MakerDAO-inspired CDP system
-              with 150% min collateralisation, 2% annual stability fee, and 10% liquidation bonus.
+            <p style={{ color: "var(--text-secondary)", fontSize: 16, maxWidth: 500 }}>
+              Mint decentralized <span style={{ color: "var(--cyan)", fontWeight: 600 }}>pUSD</span> by locking WETH. Ensure your collateral ratio stays above 150% to avoid liquidation.
             </p>
           </div>
           {!isConnected && <ConnectButton />}
         </div>
-      </div>
 
-      {/* Key params */}
-      <div className="reveal reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 32 }}>
-        {[
-          { label: "Min Ratio",    value: "150%",   color: "var(--cyan)", sub: "Minting floor"         },
-          { label: "Liq Ratio",    value: "130%",   color: "#ef4444",     sub: "Liquidation trigger"   },
-          { label: "Liq Bonus",    value: "10%",    color: "#34d399",     sub: "Liquidator reward"     },
-          { label: "Stability Fee", value: "2% APR", color: "#a78bfa",    sub: "Annual interest on debt" },
-        ].map(({ label, value, color, sub }) => (
-          <div key={label} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px 18px" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>{label}</p>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 500, color, marginBottom: 4 }}>{value}</p>
-            <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{sub}</p>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 380px", gap: 24, alignItems: "start" }}>
-
-        {/* Left — position + action */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* Existing position */}
-          <div className="reveal" style={{ background: "var(--bg-card)", border: `1px solid ${posState.color}35`, borderRadius: 18,
-            boxShadow: `0 0 24px ${posState.glow}`, overflow: "hidden" }}>
-            <div style={{ height: 3, background: `linear-gradient(90deg, ${posState.color}, transparent)` }} />
-            <div style={{ padding: 24 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>Your Vault</p>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: posState.color,
-                  background: `${posState.color}15`, border: `1px solid ${posState.color}30`,
-                  borderRadius: 20, padding: "3px 10px" }}>{posState.label}</span>
+        {/* Main Interface */}
+        <div className="vault-layout">
+          
+          {/* Left: Visualization & Data */}
+          <div className="reveal card-surface flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-center mb-8">
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>Position Health</h3>
+                <span style={{ fontSize: 13, color: "var(--text-muted)", background: "var(--bg-base)", padding: "4px 12px", borderRadius: 100, border: "1px solid var(--border)" }}>
+                  ID: #1042
+                </span>
               </div>
+              
+              <ArcGauge ratio={MOCK_RATIO} />
+            </div>
 
-              {/* Big ratio display */}
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: 52, fontWeight: 500, color: posState.color, lineHeight: 1 }}>
-                  {MOCK_RATIO}%
-                </p>
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Collateralisation ratio</p>
+            <div className="metrics-grid">
+              <div className="metric-box">
+                <div className="metric-title">Locked WETH</div>
+                <div className="metric-val">{MOCK_COLL}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>≈ ${(MOCK_COLL * WETH_PRICE).toLocaleString()}</div>
               </div>
-
-              {/* Ratio bar */}
-              <div style={{ position: "relative", height: 10, background: "rgba(0,0,0,0.3)", borderRadius: 5, overflow: "hidden", marginBottom: 8 }}>
-                <div style={{ position: "absolute", left: `${(130/300)*100}%`, top: 0, width: 2, height: "100%", background: "rgba(239,68,68,0.5)" }} />
-                <div style={{ position: "absolute", left: `${(150/300)*100}%`, top: 0, width: 2, height: "100%", background: "rgba(245,158,11,0.5)" }} />
-                <div style={{ width: `${Math.min(MOCK_RATIO/300*100, 100)}%`, height: "100%",
-                  background: `linear-gradient(90deg, #ef4444 0%, #f59e0b 30%, ${posState.color} 100%)`, borderRadius: 5 }} />
+              <div className="metric-box">
+                <div className="metric-title">Minted pUSD</div>
+                <div className="metric-val" style={{ color: "#ef4444" }}>{MOCK_DEBT.toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Debt Balance</div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#ef4444" }}>Liq 130%</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#f59e0b" }}>Min 150%</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#34d399" }}>Safe 200%+</span>
+              <div className="metric-box">
+                <div className="metric-title">Liquidation Price</div>
+                <div className="metric-val">${Math.round((MOCK_DEBT * 1.3) / MOCK_COLL).toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>WETH Floor</div>
               </div>
-
-              {/* Position stats */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10, marginTop: 20 }}>
-                {[
-                  { label: "Collateral",   value: `${MOCK_COLL} WETH`,            color: "var(--cyan)"  },
-                  { label: "Debt (pUSD)",  value: `${MOCK_DEBT.toLocaleString()}`, color: "#f87171"      },
-                  { label: "Coll. Value",  value: `$${(MOCK_COLL*WETH_PRICE).toLocaleString()}`, color: "var(--text-primary)" },
-                  { label: "Stability Fee", value: "~$30 / yr",                   color: "var(--text-muted)" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{ background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: "10px 14px" }}>
-                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>{label}</p>
-                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 500, color }}>{value}</p>
-                  </div>
-                ))}
+              <div className="metric-box">
+                <div className="metric-title">Stability Fee</div>
+                <div className="metric-val">2.0%</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Annual APR</div>
               </div>
             </div>
           </div>
 
-          {/* Action panel — tabs */}
-          <div className="reveal reveal-delay-1" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18, overflow: "hidden" }}>
-            {/* Tab row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: "1px solid var(--border)" }}>
-              {TABS.map(({ id, label, color: c }) => (
-                <button key={id} onClick={() => setTab(id)}
-                  style={{ padding: "16px 8px", border: "none", background: "none", cursor: "pointer",
-                    fontFamily: "var(--font-display)", fontWeight: tab === id ? 700 : 500, fontSize: 13,
-                    color: tab === id ? c : "var(--text-muted)",
-                    borderBottom: tab === id ? `2px solid ${c}` : "2px solid transparent",
-                    transition: "all 0.15s" }}>
-                  {label}
+          {/* Right: Controller */}
+          <div className="reveal reveal-delay-1 card-surface">
+            
+            {/* Custom Segmented Control */}
+            <div className="pill-tabs">
+              {(["open", "manage", "close"] as const).map((id) => (
+                <button key={id} onClick={() => setTab(id)} className={`pill-btn ${tab === id ? 'active' : ''}`}>
+                  {id.charAt(0).toUpperCase() + id.slice(1)}
                 </button>
               ))}
             </div>
 
-            <div style={{ padding: 24 }}>
-              {/* OPEN */}
-              {tab === "open" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <InputBox label="WETH to deposit" value={collAmt} onChange={setCollAmt} token="WETH" />
-                  <InputBox label="pUSD to mint"    value={mintAmt} onChange={setMintAmt} token="pUSD" />
-                  {collNum > 0 && mintNum > 0 && (
-                    <div style={{ background: `${ratioState.color}10`, border: `1px solid ${ratioState.color}30`, borderRadius: 12, padding: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Preview ratio</span>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 24, fontWeight: 500, color: ratioState.color }}>
-                          {previewRatio}%
-                        </span>
-                      </div>
-                      <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: previewRatio >= 150 ? "#34d399" : "#ef4444", marginTop: 4 }}>
-                        {previewRatio >= 150 ? "✓ Above 150% minimum" : "✗ Below 150% minimum — reduce mint amount"}
-                      </p>
+            {/* TAB: OPEN */}
+            {tab === "open" && (
+              <div className="flex flex-col h-full">
+                <ModernInput label="Deposit Collateral" value={collAmt} onChange={setCollAmt} symbol="WETH" />
+                <ModernInput label="Borrow Debt" value={mintAmt} onChange={setMintAmt} symbol="pUSD" />
+                
+                {collNum > 0 && mintNum > 0 && (
+                  <div className="receipt-box">
+                    <div className="receipt-row">
+                      <span className="receipt-label">Expected Ratio</span>
+                      <span className="receipt-val" style={{ color: previewRatio >= 150 ? "var(--cyan)" : "#ef4444" }}>{previewRatio}%</span>
                     </div>
-                  )}
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => {}} disabled={pending || !collAmt || !isConnected}
-                      style={{ flex: 1, borderRadius: 12, padding: "13px 0", border: "none", cursor: "pointer",
-                        fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13,
-                        background: "#f59e0b", color: "#030712", opacity: !collAmt ? 0.5 : 1 }}>
-                      Approve WETH
-                    </button>
-                    <button disabled={pending || !collAmt || !mintAmt || !isConnected || previewRatio < 150}
-                      style={{ flex: 1, borderRadius: 12, padding: "13px 0", border: "none", cursor: "pointer",
-                        fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13,
-                        background: "var(--cyan)", color: "#030712",
-                        opacity: (!collAmt || !mintAmt || previewRatio < 150) ? 0.5 : 1 }}>
-                      {pending ? "Opening…" : "Open Vault →"}
-                    </button>
+                    <div className="receipt-row">
+                      <span className="receipt-label">Status</span>
+                      <span className="receipt-val">{previewRatio >= 150 ? "Valid Operation" : "Invalid (Below 150%)"}</span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* MANAGE */}
-              {tab === "manage" && (
-                <div>
-                  <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "var(--text-primary)", marginBottom: 16 }}>Mint more pUSD</p>
-                  <InputBox label="Amount to mint" value={mintAmt} onChange={setMintAmt} token="pUSD" />
-                  <button style={{ width: "100%", borderRadius: 12, padding: "13px 0", border: "none", cursor: "pointer",
-                    fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, background: "#a78bfa", color: "#030712",
-                    marginTop: 12, opacity: !mintAmt ? 0.5 : 1 }}>Mint pUSD</button>
-
-                  <div style={{ height: 1, background: "var(--border)", margin: "24px 0" }} />
-
-                  <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, color: "var(--text-primary)", marginBottom: 16 }}>
-                    Repay pUSD
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", fontWeight: 400, marginLeft: 8 }}>
-                      Debt: {MOCK_DEBT.toLocaleString()} pUSD
-                    </span>
-                  </p>
-                  <InputBox label="Amount to repay" value={burnAmt} onChange={setBurnAmt} token="pUSD"
-                    max={String(MOCK_DEBT)} onMax={() => setBurnAmt(String(MOCK_DEBT))} />
-                  <button style={{ width: "100%", borderRadius: 12, padding: "13px 0", border: "none", cursor: "pointer",
-                    fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, background: "#34d399", color: "#030712",
-                    marginTop: 12, opacity: !burnAmt ? 0.5 : 1 }}>
-                    {pending ? "Repaying…" : "Repay pUSD"}
+                <div className="mt-auto pt-4 flex gap-3">
+                  <button className="action-btn" disabled={pending || !collAmt || !isConnected} style={{ background: "var(--bg-base)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+                    Approve
+                  </button>
+                  <button className="action-btn btn-primary" disabled={pending || !collAmt || !mintAmt || !isConnected || previewRatio < 150}>
+                    {pending ? "Processing..." : "Open Vault"}
                   </button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* CLOSE */}
-              {tab === "close" && (
+            {/* TAB: MANAGE */}
+            {tab === "manage" && (
+              <div className="flex flex-col h-full space-y-6">
                 <div>
-                  <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 12, padding: 14, marginBottom: 20 }}>
-                    <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#f59e0b", marginBottom: 4 }}>⚠ Repay debt first</p>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>
-                      Burn all pUSD before withdrawing, or maintain 150% ratio after withdrawal.
-                    </p>
-                  </div>
-                  <InputBox label="WETH to withdraw" value={withdrawAmt} onChange={setWithdrawAmt} token="WETH"
-                    max={String(MOCK_COLL)} onMax={() => setWithdrawAmt(String(MOCK_COLL))} />
-                  <button style={{ width: "100%", borderRadius: 12, padding: "13px 0", border: "none", cursor: "pointer",
-                    fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, background: "#f59e0b", color: "#030712",
-                    marginTop: 12, opacity: !withdrawAmt ? 0.5 : 1 }}>
-                    {pending ? "Withdrawing…" : "Withdraw WETH"}
+                  <ModernInput label="Mint Additional" value={mintAmt} onChange={setMintAmt} symbol="pUSD" />
+                  <button className="action-btn btn-primary" disabled={!mintAmt}>Mint</button>
+                </div>
+                
+                <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
+
+                <div>
+                  <ModernInput label="Repay Debt" value={burnAmt} onChange={setBurnAmt} symbol="pUSD" max={String(MOCK_DEBT)} onMax={() => setBurnAmt(String(MOCK_DEBT))} />
+                  <button className="action-btn" disabled={pending || !burnAmt} style={{ background: "var(--bg-base)", color: "var(--text-primary)", border: "1px solid var(--border)", marginTop: "16px" }}>
+                    {pending ? "Processing..." : "Repay"}
                   </button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {txHash && (
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 14 }}>
-                  Tx: {txHash.slice(0,10)}…{txHash.slice(-8)}
-                </p>
-              )}
+            {/* TAB: CLOSE */}
+            {tab === "close" && (
+              <div className="flex flex-col h-full space-y-6">
+                <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 16 }}>
+                  <h4 style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "#ef4444", marginBottom: 4 }}>Clear Debt First</h4>
+                  <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>You must completely repay your pUSD balance to safely unlock and withdraw all WETH collateral.</p>
+                </div>
+
+                <ModernInput label="Withdraw Collateral" value={withdrawAmt} onChange={setWithdrawAmt} symbol="WETH" max={String(MOCK_COLL)} onMax={() => setWithdrawAmt(String(MOCK_COLL))} />
+                
+                <div className="mt-auto pt-4">
+                  <button className="action-btn btn-danger" disabled={pending || !withdrawAmt}>
+                    {pending ? "Processing..." : "Withdraw WETH"}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {txHash && (
+              <div className="mt-4 text-center">
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--cyan)" }}>Tx: {txHash.slice(0,10)}…{txHash.slice(-8)}</span>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Info Footer */}
+        <div className="reveal mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="card-surface" style={{ padding: 24 }}>
+            <h4 style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>Protocol Mechanics</h4>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+              {[
+                "1. Deposit WETH to establish a collateral base.",
+                "2. Mint pUSD up to 66% of your collateral value.",
+                "3. Your vault accrues a 2% stability fee annually.",
+                "4. Burn pUSD to recover your WETH collateral."
+              ].map((text, i) => (
+                <li key={i} style={{ fontSize: 14, color: "var(--text-secondary)" }}>{text}</li>
+              ))}
+            </ul>
+          </div>
+          
+          <div className="card-surface" style={{ padding: 24 }}>
+            <h4 style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>MakerDAO Comparison</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                ["Ilk", "Collateral Config"], ["Urn", "Vault Struct"], ["Jug", "Stability Fee"], ["Cat", "Liquidation Contract"]
+              ].map(([maker, ours]) => (
+                <div key={maker} className="flex justify-between border-b border-zinc-500/20 pb-2">
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-muted)" }}>{maker}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-primary)" }}>{ours}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right — info panel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, position: "sticky", top: 88 }}>
-
-          {/* How CDPs work */}
-          <div className="reveal" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 22 }}>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 16 }}>How CDPs work</p>
-            {[
-              { n: "1", text: "Deposit WETH collateral into your vault" },
-              { n: "2", text: "Mint pUSD up to 66% of collateral value (150% ratio)" },
-              { n: "3", text: "Use pUSD — swap, lend, provide liquidity" },
-              { n: "4", text: "Burn pUSD + stability fee to recover collateral" },
-            ].map(({ n, text }) => (
-              <div key={n} style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
-                <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(34,211,238,0.12)",
-                  border: "1px solid rgba(34,211,238,0.25)", display: "flex", alignItems: "center",
-                  justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--cyan)" }}>{n}</span>
-                </div>
-                <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, paddingTop: 2 }}>{text}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* MakerDAO comparison */}
-          <div className="reveal reveal-delay-1" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 22 }}>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 16 }}>
-              MakerDAO comparison
-            </p>
-            {[
-              ["Ilk",    "CollateralConfig"],
-              ["Urn",    "Vault struct"    ],
-              ["Jug",    "Stability fee"   ],
-              ["Cat",    "liquidate()"     ],
-              ["Vow",    "ProtocolTreasury"],
-              ["DAI",    "pUSD (ERC-20)"  ],
-            ].map(([maker, ours]) => (
-              <div key={maker} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0",
-                borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#a78bfa" }}>{maker}</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--cyan)" }}>{ours}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
-    </div>
+    </>
   );
 }
