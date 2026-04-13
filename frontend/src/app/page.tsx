@@ -166,7 +166,7 @@ export default function MarketsPage() {
   // Unified protocol data — single source of truth
   const { assets, totals, isLoading } = useProtocolData();
 
-  const tests     = useCounter(371, 1800, started);
+  const tests     = useCounter(381, 1800, started);
   const contracts = useCounter(10,  1200, started);
 
   const { displayText } = useTypewriter({
@@ -175,7 +175,7 @@ export default function MarketsPage() {
   });
 
   const TICKER = [
-    { label: "Tests Passing",   value: "371"             },
+    { label: "Tests Passing",   value: "381"             },
     { label: "Deployed",        value: "Sepolia"         },
     { label: "Assets",          value: "WETH·USDC·LINK"  },
     { label: "Max LTV",         value: "80%"             },
@@ -236,7 +236,7 @@ export default function MarketsPage() {
                 <span className="pulse-dot" style={{ marginRight: 8 }} />Live on Sepolia
               </span>
               <span className="badge badge-violet">Chainlink + TWAP</span>
-              <span className="badge badge-green">371 Tests</span>
+              <span className="badge badge-green">381 Tests</span>
               <span className="badge badge-amber">Credit Delegation</span>
             </div>
 
@@ -361,7 +361,7 @@ export default function MarketsPage() {
           <ProtoStat label="Total Value Locked"  value={totals.tvlUsd > 0 ? `$${totals.tvlUsd.toLocaleString("en-US",{maximumFractionDigits:0})}` : "—"} color="var(--cyan)" sub="Across all markets" />
           <ProtoStat label="Total Borrowed"      value={totals.totalBorrowUsd > 0 ? `$${totals.totalBorrowUsd.toLocaleString("en-US",{maximumFractionDigits:0})}` : "—"} color="#f87171" sub="Outstanding debt" />
           <ProtoStat label="Weighted Supply APY" value={totals.weightedSupplyApy > 0 ? `${totals.weightedSupplyApy.toFixed(2)}%` : "—"} color="#34d399" sub="Avg across all assets" />
-          <ProtoStat label="Tests Passing"       value="371" color="#a78bfa" sub="100% — all suites" />
+          <ProtoStat label="Tests Passing"       value="381" color="#a78bfa" sub="100% — all suites" />
         </div>
       </section>
 
@@ -444,7 +444,7 @@ export default function MarketsPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
             {[
               { label: "Solidity",         sub: "0.8.24",         icon: "⬡" },
-              { label: "Foundry",          sub: "371 Tests",       icon: "⚒" },
+              { label: "Foundry",          sub: "381 Tests",       icon: "⚒" },
               { label: "Chainlink+TWAP",   sub: "Dual Oracle",     icon: "◈" },
               { label: "Next.js 14",       sub: "App Router",      icon: "▲" },
               { label: "wagmi v2",         sub: "Type-Safe",       icon: "⌁" },

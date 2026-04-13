@@ -26,7 +26,7 @@ const LINKS = {
 const STATS = [
   { label: "Total Assets",  value: "3"       },
   { label: "Network",       value: "Sepolia" },
-  { label: "Tests",         value: "371"     },
+  { label: "Tests",         value: "381"     },
   { label: "Contracts",     value: "10"      },
 ];
 
