@@ -28,7 +28,6 @@ runs = 256
 depth = 15
 fail_on_revert = false
 
-# CI profile — more fuzz runs
 [profile.ci]
 fuzz = { runs = 10000 }
 invariant = { runs = 512 }
@@ -42,3 +41,17 @@ int_types = "long"
 multiline_func_header = "params_first"
 quote_style = "double"
 number_underscore = "thousands"
+
+
+# Fork testing profile
+[profile.fork]
+fuzz = { runs = 256 }
+
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC}"
+sepolia = "${SEPOLIA_RPC_URL}"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_KEY}" }
+sepolia = { key = "${ETHERSCAN_KEY}", url = "https://api-sepolia.etherscan.io/api" }
+
