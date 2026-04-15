@@ -129,3 +129,85 @@ export function computeApy(indexOld: string, indexNew: string, daysElapsed: numb
 export function dayIdNDaysAgo(n: number): string {
   return String(Math.floor((Date.now()/1000 - n*86_400) / 86_400));
 }
+
+// ── Portfolio / User history queries ─────────────────────────────────────────
+
+export const USER_POSITIONS_QUERY = gql`
+  query UserPositions($user: String!) {
+    account(id: $user) {
+      id
+      depositCount
+      borrowCount
+      positions {
+        id
+        asset
+        depositBalance
+        borrowBalance
+        totalDeposited
+        totalBorrowed
+        totalRepaid
+        totalWithdrawn
+      }
+    }
+  }
+`;
+
+export const USER_HISTORY_QUERY = gql`
+  query UserHistory($user: String!) {
+    deposits(where: { user: $user }, orderBy: timestamp, orderDirection: desc, first: 50) {
+      id timestamp amount amountUsd
+      market { symbol }
+    }
+    borrows(where: { user: $user }, orderBy: timestamp, orderDirection: desc, first: 50) {
+      id timestamp amount amountUsd
+      market { symbol }
+    }
+    repays(where: { user: $user }, orderBy: timestamp, orderDirection: desc, first: 50) {
+      id timestamp amount amountUsd
+      market { symbol }
+    }
+    withdraws(where: { user: $user }, orderBy: timestamp, orderDirection: desc, first: 50) {
+      id timestamp amount amountUsd
+      market { symbol }
+    }
+    liquidations(where: { borrower: $user }, orderBy: timestamp, orderDirection: desc, first: 20) {
+      id timestamp debtCovered collateralSeized
+      collateralAsset debtAsset liquidator
+    }
+  }
+`;
+
+export type SubgraphPosition = {
+  id:             string;
+  asset:          string;
+  depositBalance: string;
+  borrowBalance:  string;
+  totalDeposited: string;
+  totalBorrowed:  string;
+  totalRepaid:    string;
+  totalWithdrawn: string;
+};
+
+export type HistoryEvent = {
+  id:        string;
+  timestamp: string;
+  amount:    string;
+  amountUsd: string;
+  market:    { symbol: string };
+};
+
+export type LiqHistoryEvent = {
+  id:               string;
+  timestamp:        string;
+  debtCovered:      string;
+  collateralSeized: string;
+  collateralAsset:  string;
+  debtAsset:        string;
+  liquidator:       string;
+};
+
+export function formatTimestamp(ts: string): string {
+  return new Date(Number(ts) * 1000).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
