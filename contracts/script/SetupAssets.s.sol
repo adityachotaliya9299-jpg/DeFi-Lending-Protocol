@@ -73,6 +73,8 @@ contract SetupAssets is Script {
             liquidationThreshold: 8_500,
             liquidationBonus:     800,
             reserveFactor:        1_000,
+            supplyCap:            0,
+            borrowCap:            0,
             isActive:             true,
             isBorrowEnabled:      true
         }));
@@ -83,6 +85,8 @@ contract SetupAssets is Script {
             liquidationThreshold: 9_000,
             liquidationBonus:     500,
             reserveFactor:        500,
+            supplyCap:            0,
+            borrowCap:            0,
             isActive:             true,
             isBorrowEnabled:      true
         }));
@@ -93,6 +97,8 @@ contract SetupAssets is Script {
             liquidationThreshold: 7_000,
             liquidationBonus:     1_000,
             reserveFactor:        1_000,
+            supplyCap:            0,
+            borrowCap:            0,
             isActive:             true,
             isBorrowEnabled:      true
         }));
