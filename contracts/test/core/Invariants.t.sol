@@ -68,11 +68,11 @@ contract InvariantsTest is Test {
 
         cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({
             ltv: 8_000, liquidationThreshold: 8_500, liquidationBonus: 800,
-            reserveFactor: 1_000, isActive: true, isBorrowEnabled: true
+            reserveFactor: 1_000,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
         }));
         cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({
             ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,
-            reserveFactor: 500, isActive: true, isBorrowEnabled: true
+            reserveFactor: 500,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
         }));
 
         pool.initAsset(address(weth));
