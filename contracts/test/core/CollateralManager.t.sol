@@ -15,13 +15,15 @@ contract CollateralManagerTest is Test {
     address internal usdc      = makeAddr("usdc");
 
     ICollateralManager.AssetConfig internal ethConfig = ICollateralManager.AssetConfig({
-        ltv:                  8_000,  // 80%
-        liquidationThreshold: 8_500,  // 85%
-        liquidationBonus:     800,    // 8%
-        reserveFactor:        1_000,  // 10%
-        isActive:             true,
-        isBorrowEnabled:      true
-    });
+    ltv:                  8_000,
+    liquidationThreshold: 8_500,
+    liquidationBonus:     800,
+    reserveFactor:        1_000,
+    supplyCap:            1_000_000e18,
+    borrowCap:            500_000e18,
+    isActive:             true,
+    isBorrowEnabled:      true
+});
 
     function setUp() public {
         cm = new CollateralManager(admin);
@@ -114,6 +116,8 @@ contract CollateralManagerTest is Test {
         cm.setAssetConfig(wbtc, ICollateralManager.AssetConfig({
             ltv: 7_500, liquidationThreshold: 8_000,
             liquidationBonus: 800, reserveFactor: 1_000,
+            supplyCap:             1_000_000e18,
+            borrowCap:             500_000e18,
             isActive: true, isBorrowEnabled: true
         }));
         address[] memory assets = cm.getSupportedAssets();
@@ -201,6 +205,8 @@ contract CollateralManagerTest is Test {
         cm.setAssetConfig(wbtc, ICollateralManager.AssetConfig({
             ltv: 7_500, liquidationThreshold: 8_000,
             liquidationBonus: 800, reserveFactor: 1_000,
+            supplyCap:             1_000_000e18,
+            borrowCap:             500_000e18,
             isActive: true, isBorrowEnabled: true
         }));
 
