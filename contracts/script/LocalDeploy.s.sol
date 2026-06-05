@@ -78,10 +78,10 @@ contract LocalDeploy is Script {
         oracle.registerFeed(address(link), address(linkFeed), 3_600);
 
         // ── Configure assets ──────────────────────────────────────────────────
-        cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({ ltv: 8_000, liquidationThreshold: 8_500, liquidationBonus: 800,   reserveFactor: 1_000, isActive: true, isBorrowEnabled: true }));
-        cm.setAssetConfig(address(wbtc), ICollateralManager.AssetConfig({ ltv: 7_500, liquidationThreshold: 8_000, liquidationBonus: 800,   reserveFactor: 1_000, isActive: true, isBorrowEnabled: true }));
-        cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({ ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,   reserveFactor: 500,   isActive: true, isBorrowEnabled: true }));
-        cm.setAssetConfig(address(link), ICollateralManager.AssetConfig({ ltv: 6_500, liquidationThreshold: 7_000, liquidationBonus: 1_000, reserveFactor: 1_000, isActive: true, isBorrowEnabled: true }));
+       cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({ ltv: 8_000, liquidationThreshold: 8_500, liquidationBonus: 800,   reserveFactor: 1_000, supplyCap: 0, borrowCap: 0, isActive: true, isBorrowEnabled: true }));
+        cm.setAssetConfig(address(wbtc), ICollateralManager.AssetConfig({ ltv: 7_500, liquidationThreshold: 8_000, liquidationBonus: 800,   reserveFactor: 1_000, supplyCap: 0, borrowCap: 0, isActive: true, isBorrowEnabled: true }));
+        cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({ ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,   reserveFactor: 500,   supplyCap: 0, borrowCap: 0, isActive: true, isBorrowEnabled: true }));
+        cm.setAssetConfig(address(link), ICollateralManager.AssetConfig({ ltv: 6_500, liquidationThreshold: 7_000, liquidationBonus: 1_000, reserveFactor: 1_000, supplyCap: 0, borrowCap: 0, isActive: true, isBorrowEnabled: true }));
 
         // ── Init assets in pool ───────────────────────────────────────────────
         pool.initAsset(address(weth));
