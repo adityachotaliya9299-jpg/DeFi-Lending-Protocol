@@ -77,7 +77,7 @@ contract FlashLoanTest is Test {
 
         cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({
             ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,
-            reserveFactor: 500, isActive: true, isBorrowEnabled: true
+            reserveFactor: 500,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
         }));
         pool.initAsset(address(usdc));
         vm.stopPrank();
