@@ -18,6 +18,7 @@ import {FlashLoanProvider}   from "./FlashLoanProvider.sol";
 import {IFlashLoanReceiver}  from "../interfaces/IFlashLoanReceiver.sol";
 import {IsolationMode}       from "../modes/IsolationMode.sol";
 import {EfficiencyMode}      from "../modes/EfficiencyMode.sol";
+import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
  * @title  LendingPool
@@ -336,6 +337,16 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
 
+        // Phase 1: supply cap check
+    {
+        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+        collateralManager.checkSupplyCap(
+            asset,
+            currentSupply / 10**IERC20Metadata(asset).decimals(),
+            amount / 10**IERC20Metadata(asset).decimals()
+        );
+    }
+
         _accrueInterest(asset, reserve);
 
         uint256 liquidityIndex = reserve.liquidityIndex;
@@ -363,33 +374,109 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
 
 
      function depositWithPermit(
-        address asset,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v, bytes32 r, bytes32 s
-    ) external nonReentrant whenNotPaused {
-        // Execute the off-chain signed approval atomically
-        // If signature is invalid → reverts here, nothing deposited
-        IERC20Permit(asset).permit(
-            msg.sender, address(this), amount, deadline, v, r, s
-        );
+    address asset,
+    uint256 amount,
+    uint256 deadline,
+    uint8 v, bytes32 r, bytes32 s
+) external nonReentrant whenNotPaused {
+    if (amount == 0) revert LendingPool__ZeroAmount();
+    
+    // Execute off-chain signed approval
+    IERC20Permit(asset).permit(
+        msg.sender, address(this), amount, deadline, v, r, s
+    );
 
-        // Standard deposit flow — identical to deposit()
-        _deposit(msg.sender, asset, amount);
+    // Standard deposit flow
+    ReserveData storage reserve = _getActiveReserve(asset);
+    // Phase 1: supply cap check
+    {
+        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+        collateralManager.checkSupplyCap(
+            asset,
+            currentSupply / 10**IERC20Metadata(asset).decimals(),
+            amount / 10**IERC20Metadata(asset).decimals()
+        );
     }
+    _accrueInterest(asset, reserve);
+
+    uint256 liquidityIndex = reserve.liquidityIndex;
+    uint256 scaledAmount = amount.rayDiv(liquidityIndex);
+
+    IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+    _scaledDeposits[msg.sender][asset] += scaledAmount;
+    reserve.totalScaledDeposits += scaledAmount;
+
+    if (!_hasCollateral[msg.sender][asset]) {
+        require(_userCollateral[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
+        _userCollateral[msg.sender].push(asset);
+        _hasCollateral[msg.sender][asset] = true;
+    }
+
+    LendingToken(reserve.lTokenAddress).mint(msg.sender, amount, liquidityIndex);
+    emit Deposit(asset, msg.sender, amount);
+}
 
 
     function repayWithPermit(
-        address asset,
-        uint256 amount,
-        uint256 deadline,
-        uint8 v, bytes32 r, bytes32 s
-    ) external nonReentrant {
-        IERC20Permit(asset).permit(
-            msg.sender, address(this), amount, deadline, v, r, s
+    address asset,
+    uint256 amount,
+    uint256 deadline,
+    uint8 v, bytes32 r, bytes32 s
+) external nonReentrant returns (uint256 repaid) {
+    if (amount == 0) revert LendingPool__ZeroAmount();
+    
+    // Execute off-chain signed approval
+    IERC20Permit(asset).permit(
+        msg.sender, address(this), amount, deadline, v, r, s
+    );
+
+    // Standard repay flow
+    ReserveData storage reserve = _getActiveReserve(asset);
+    // Phase 1: supply cap check
+    {
+        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+        collateralManager.checkSupplyCap(
+            asset,
+            currentSupply / 10**IERC20Metadata(asset).decimals(),
+            amount / 10**IERC20Metadata(asset).decimals()
         );
-        _repay(msg.sender, asset, amount);
     }
+    _accrueInterest(asset, reserve);
+
+    uint256 borrowIndex = reserve.borrowIndex;
+    uint256 scaledDebt = _scaledBorrows[msg.sender][asset];
+    uint256 currentDebt = scaledDebt.rayMul(borrowIndex);
+
+    if (currentDebt == 0) revert LendingPool__InsufficientBalance();
+
+    repaid = amount > currentDebt ? currentDebt : amount;
+
+    uint256 scaledRepay = repaid.rayDiv(borrowIndex);
+    if (scaledDebt - scaledRepay < 1) {
+        scaledRepay = scaledDebt;
+        repaid = currentDebt;
+    }
+
+    _scaledBorrows[msg.sender][asset] -= scaledRepay;
+    reserve.totalScaledBorrows -= scaledRepay;
+
+    if (_scaledBorrows[msg.sender][asset] == 0) {
+        _removeBorrow(msg.sender, asset);
+    }
+
+    // Collect reserve factor
+    ICollateralManager.AssetConfig memory cfg = collateralManager.getAssetConfig(asset);
+    uint256 reserveCut = repaid.percentMul(cfg.reserveFactor);
+    uint256 toPool = repaid - reserveCut;
+
+    IERC20(asset).safeTransferFrom(msg.sender, address(this), toPool);
+    if (reserveCut > 0) {
+        IERC20(asset).safeTransferFrom(msg.sender, treasury, reserveCut);
+        emit ReservesCollected(asset, reserveCut);
+    }
+
+    emit Repay(asset, msg.sender, repaid, msg.sender);
+}
 
     
     // ─────────────────────────────────────────────────────────────────────────
@@ -405,6 +492,15 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         external override nonReentrant returns (uint256 withdrawn)
     {
         ReserveData storage reserve = _getActiveReserve(asset);
+            // Phase 1: supply cap check
+    {
+        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+        collateralManager.checkSupplyCap(
+            asset,
+            currentSupply / 10**IERC20Metadata(asset).decimals(),
+            amount / 10**IERC20Metadata(asset).decimals()
+        );
+    }
         _accrueInterest(asset, reserve);
 
         uint256 liquidityIndex  = reserve.liquidityIndex;
@@ -457,7 +553,26 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     {
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
+        // Phase 1: supply cap check
+        {
+            uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+            collateralManager.checkSupplyCap(
+                asset,
+                currentSupply / 10**IERC20Metadata(asset).decimals(),
+                amount / 10**IERC20Metadata(asset).decimals()
+            );
+        }
         if (!reserve.isBorrowEnabled) revert LendingPool__BorrowNotEnabled(asset);
+
+        // Phase 1: borrow cap check
+{
+    uint256 currentBorrows = (reserve.totalScaledBorrows * reserve.borrowIndex) / 1e27;
+    collateralManager.checkBorrowCap(
+        asset,
+        currentBorrows / 10**IERC20Metadata(asset).decimals(),
+        amount / 10**IERC20Metadata(asset).decimals()
+    );
+}
 
         _accrueInterest(asset, reserve);
 
@@ -524,6 +639,15 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     {
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
+        // Phase 1: supply cap check
+        {
+            uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+            collateralManager.checkSupplyCap(
+                asset,
+                currentSupply / 10**IERC20Metadata(asset).decimals(),
+                amount / 10**IERC20Metadata(asset).decimals()
+            );
+        }
         _accrueInterest(asset, reserve);
 
         uint256 borrowIndex   = reserve.borrowIndex;
