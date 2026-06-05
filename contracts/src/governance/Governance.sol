@@ -77,18 +77,20 @@ contract Governance is Ownable {
      * @notice Disable an asset (freeze new deposits/borrows).
      */
     function disableAsset(address asset) external onlyOwner {
-        collateralManager.setAssetConfig(
-            asset,
-            ICollateralManager.AssetConfig({
-                ltv:                  0,
-                liquidationThreshold: 1, // must be > ltv
-                liquidationBonus:     0,
-                reserveFactor:        0,
-                isActive:             false,
-                isBorrowEnabled:      false
-            })
-        );
-    }
+    collateralManager.setAssetConfig(
+        asset,
+        ICollateralManager.AssetConfig({
+            ltv:                  0,
+            liquidationThreshold: 1, // must be > ltv
+            liquidationBonus:     0,
+            reserveFactor:        0,
+            supplyCap:            0,
+            borrowCap:            0,
+            isActive:             false,
+            isBorrowEnabled:      false
+        })
+    );
+}
 
     // ─── Interest rate parameters ─────────────────────────────────────────────
 
