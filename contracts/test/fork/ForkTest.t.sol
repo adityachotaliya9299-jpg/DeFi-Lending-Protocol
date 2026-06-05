@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test, console2}    from "forge-std/Test.sol";
 import {IERC20}             from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ICollateralManager} from "../../src/interfaces/ICollateralManager.sol";
 
 // ── Minimal Uniswap v3 interfaces for fork testing ────────────────────────────
 interface IUniswapV3Pool {
@@ -455,10 +456,19 @@ contract ForkTest is Test {
 
         // Configure assets — use real mainnet addresses for tokens
         // CollateralManager: WETH config
-        bytes4 setConfigSig = bytes4(keccak256("setAssetConfig(address,(uint256,uint256,uint256,uint256,bool,bool))"));
-        (bool cmOk,) = collManager.call(abi.encodeWithSelector(
-            setConfigSig, WETH,
-            uint256(8000), uint256(8500), uint256(800), uint256(1000), true, true
+        (bool cmOk,) = collManager.call(abi.encodeWithSignature(
+            "setAssetConfig(address,(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool))",
+            WETH,
+            ICollateralManager.AssetConfig({
+                ltv: 8_000,
+                liquidationThreshold: 8_500,
+                liquidationBonus: 800,
+                reserveFactor: 1_000,
+                supplyCap: 0,
+                borrowCap: 0,
+                isActive: true,
+                isBorrowEnabled: true
+            })
         ));
         assertTrue(cmOk, "WETH setAssetConfig failed");
 
@@ -469,9 +479,19 @@ contract ForkTest is Test {
         assertTrue(initOk, "WETH initAsset failed");
 
         // Init USDC in pool
-        (cmOk,) = collManager.call(abi.encodeWithSelector(
-            setConfigSig, USDC,
-            uint256(8500), uint256(9000), uint256(500), uint256(500), true, true
+        (cmOk,) = collManager.call(abi.encodeWithSignature(
+            "setAssetConfig(address,(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool))",
+            USDC,
+            ICollateralManager.AssetConfig({
+                ltv: 8_500,
+                liquidationThreshold: 9_000,
+                liquidationBonus: 500,
+                reserveFactor: 500,
+                supplyCap: 0,
+                borrowCap: 0,
+                isActive: true,
+                isBorrowEnabled: true
+            })
         ));
         assertTrue(cmOk, "USDC setAssetConfig failed");
 
