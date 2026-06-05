@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControl}      from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ICollateralManager} from "../interfaces/ICollateralManager.sol";
 import {PercentageMath}     from "../math/PercentageMath.sol";
 
@@ -10,26 +10,28 @@ import {PercentageMath}     from "../math/PercentageMath.sol";
  * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
  * @notice Stores per-asset risk parameters and calculates health factors.
  *
- *         What it owns:
- *           - AssetConfig per asset (LTV, liqThreshold, liqBonus, reserveFactor)
- *           - Health-factor calculator (pure math — LendingPool passes USD values)
+ * Phase 1 additions:
+ *   - supplyCap per asset — governance can cap total deposits (e.g. WETH: 10,000 WETH max)
+ *   - borrowCap per asset — governance can cap total borrows  (e.g. USDC: 8,000,000 USDC max)
+ *   - checkSupplyCap() — pure view, called by LendingPool before every deposit
+ *   - checkBorrowCap() — pure view, called by LendingPool before every borrow
+ *   - setSupplyCap() / setBorrowCap() — governance-only cap updates with events
  *
- *         What it does NOT own:
- *           - User balances (LendingPool tracks those)
- *           - Oracle calls (LendingPool fetches prices, passes USD values here)
- *
- *         This clean separation means CollateralManager is testable in isolation
- *         and governance can update risk params without touching the main pool.
+ * Why caps matter:
+ *   Without caps, a single asset with a compromised oracle can drain the
+ *   entire pool. Aave v3 introduced supply/borrow caps after multiple exploits
+ *   used unlimited collateral to extract all liquidity. Caps limit the
+ *   maximum possible loss to the configured ceiling.
  */
 contract CollateralManager is ICollateralManager, AccessControl {
     using PercentageMath for uint256;
 
     bytes32 public constant CONFIGURATOR_ROLE = keccak256("CONFIGURATOR_ROLE");
 
-    uint256 public constant MAX_LTV                   = 9_500; // 95%
-    uint256 public constant MAX_LIQUIDATION_THRESHOLD = 9_500; // 95%
-    uint256 public constant MAX_LIQUIDATION_BONUS     = 2_000; // 20%
-    uint256 public constant MAX_RESERVE_FACTOR        = 5_000; // 50%
+    uint256 public constant MAX_LTV                   = 9_500;
+    uint256 public constant MAX_LIQUIDATION_THRESHOLD = 9_500;
+    uint256 public constant MAX_LIQUIDATION_BONUS     = 2_000;
+    uint256 public constant MAX_RESERVE_FACTOR        = 5_000;
 
     mapping(address => AssetConfig) private _configs;
     address[] private _supportedAssets;
@@ -67,10 +69,78 @@ contract CollateralManager is ICollateralManager, AccessControl {
         emit AssetConfigured(asset, cfg);
     }
 
+    /**
+     * @notice Update the supply cap for an asset.
+     * @param  asset     The asset to update.
+     * @param  newCap    New maximum total deposits in asset units. 0 = unlimited.
+     *
+     * Example: setSupplyCap(WETH, 10_000e18) caps WETH deposits at 10,000 WETH.
+     */
+    function setSupplyCap(address asset, uint256 newCap)
+        external onlyRole(CONFIGURATOR_ROLE)
+    {
+        uint256 oldCap = _configs[asset].supplyCap;
+        _configs[asset].supplyCap = newCap;
+        emit SupplyCapUpdated(asset, oldCap, newCap);
+    }
+
+    /**
+     * @notice Update the borrow cap for an asset.
+     * @param  asset     The asset to update.
+     * @param  newCap    New maximum total borrows in asset units. 0 = unlimited.
+     *
+     * Example: setBorrowCap(USDC, 8_000_000e6) caps USDC borrows at 8M USDC.
+     */
+    function setBorrowCap(address asset, uint256 newCap)
+        external onlyRole(CONFIGURATOR_ROLE)
+    {
+        uint256 oldCap = _configs[asset].borrowCap;
+        _configs[asset].borrowCap = newCap;
+        emit BorrowCapUpdated(asset, oldCap, newCap);
+    }
+
     function disableAsset(address asset) external onlyRole(CONFIGURATOR_ROLE) {
         _configs[asset].isActive        = false;
         _configs[asset].isBorrowEnabled = false;
         emit AssetDisabled(asset);
+    }
+
+    // ─── Cap checkers ─────────────────────────────────────────────────────────
+
+    /**
+     * @notice Reverts if depositing `depositAmount` would exceed the supply cap.
+     * @dev    Called by LendingPool.deposit() before any state changes.
+     *         The pool passes the current totalScaledDeposits (converted to asset units)
+     *         so this function is purely a view — no storage writes.
+     */
+    function checkSupplyCap(
+        address asset,
+        uint256 currentSupply,
+        uint256 depositAmount
+    ) external view override {
+        uint256 cap = _configs[asset].supplyCap;
+        if (cap == 0) return; // 0 = unlimited, skip check
+
+        uint256 newSupply = currentSupply + depositAmount;
+        if (newSupply > cap)
+            revert CollateralManager__SupplyCapExceeded(asset, cap, newSupply);
+    }
+
+    /**
+     * @notice Reverts if borrowing `borrowAmount` would exceed the borrow cap.
+     * @dev    Called by LendingPool.borrow() before any state changes.
+     */
+    function checkBorrowCap(
+        address asset,
+        uint256 currentBorrows,
+        uint256 borrowAmount
+    ) external view override {
+        uint256 cap = _configs[asset].borrowCap;
+        if (cap == 0) return; // 0 = unlimited, skip check
+
+        uint256 newBorrows = currentBorrows + borrowAmount;
+        if (newBorrows > cap)
+            revert CollateralManager__BorrowCapExceeded(asset, cap, newBorrows);
     }
 
     // ─── View functions ───────────────────────────────────────────────────────
@@ -91,16 +161,16 @@ contract CollateralManager is ICollateralManager, AccessControl {
         return _supportedAssets;
     }
 
+    function getSupplyCap(address asset) external view returns (uint256) {
+        return _configs[asset].supplyCap;
+    }
+
+    function getBorrowCap(address asset) external view returns (uint256) {
+        return _configs[asset].borrowCap;
+    }
+
     // ─── Health factor calculation ────────────────────────────────────────────
 
-    /**
-     * @notice Calculate health factor given pre-computed USD values.
-     *
-     *   adjustedCollateral = Σ (collateralUsd_i * liquidationThreshold_i)
-     *   healthFactor = adjustedCollateral * 1e18 / totalDebtUsd
-     *
-     * Returns type(uint256).max when no debt exists.
-     */
     function calculateHealthFactor(
         address[] calldata collateralAssets,
         uint256[] calldata collateralUsds,
