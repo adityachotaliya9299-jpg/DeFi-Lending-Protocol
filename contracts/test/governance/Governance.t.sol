@@ -23,6 +23,8 @@ contract GovernanceTest is Test {
         liquidationThreshold: 8_500,
         liquidationBonus:     800,
         reserveFactor:        1_000,
+            supplyCap:             1_000_000e18,
+            borrowCap:             500_000e18,
         isActive:             true,
         isBorrowEnabled:      true
     });
@@ -178,6 +180,8 @@ contract GovernanceTest is Test {
             liquidationThreshold: threshold,
             liquidationBonus:     500,
             reserveFactor:        500,
+            supplyCap:             1_000_000e18,
+            borrowCap:             500_000e18,
             isActive:             true,
             isBorrowEnabled:      true
         });
