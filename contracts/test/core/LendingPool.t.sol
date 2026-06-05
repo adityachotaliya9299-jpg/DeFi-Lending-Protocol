@@ -85,10 +85,12 @@ contract LendingPoolTest is Test {
 
         // Configure assets in CollateralManager
         cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({
-            ltv:                  8_000,  // 80% LTV
-            liquidationThreshold: 8_500,  // 85% liq threshold
-            liquidationBonus:     800,    // 8% bonus
-            reserveFactor:        1_000,  // 10%
+            ltv:                  8_000,
+            liquidationThreshold: 8_500,
+            liquidationBonus:     800,
+            reserveFactor:        1_000,
+            supplyCap:            0,
+            borrowCap:            0,
             isActive:             true,
             isBorrowEnabled:      true
         }));
@@ -97,6 +99,8 @@ contract LendingPoolTest is Test {
             liquidationThreshold: 9_000,
             liquidationBonus:     500,
             reserveFactor:        500,
+            supplyCap:             0,
+            borrowCap:             0,
             isActive:             true,
             isBorrowEnabled:      true
         }));
