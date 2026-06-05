@@ -361,6 +361,37 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         emit Deposit(asset, msg.sender, amount);
     }
 
+
+     function depositWithPermit(
+        address asset,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v, bytes32 r, bytes32 s
+    ) external nonReentrant whenNotPaused {
+        // Execute the off-chain signed approval atomically
+        // If signature is invalid → reverts here, nothing deposited
+        IERC20Permit(asset).permit(
+            msg.sender, address(this), amount, deadline, v, r, s
+        );
+
+        // Standard deposit flow — identical to deposit()
+        _deposit(msg.sender, asset, amount);
+    }
+
+
+    function repayWithPermit(
+        address asset,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v, bytes32 r, bytes32 s
+    ) external nonReentrant {
+        IERC20Permit(asset).permit(
+            msg.sender, address(this), amount, deadline, v, r, s
+        );
+        _repay(msg.sender, asset, amount);
+    }
+
+    
     // ─────────────────────────────────────────────────────────────────────────
     //  Core — withdraw
     // ─────────────────────────────────────────────────────────────────────────
