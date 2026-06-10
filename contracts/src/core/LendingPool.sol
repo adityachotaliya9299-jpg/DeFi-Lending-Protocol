@@ -901,7 +901,8 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         if (timeDelta == 0) return;
 
         uint256 totalLiq    = reserve.totalScaledDeposits.rayMul(reserve.liquidityIndex);
-        uint256 totalBorrow = reserve.totalScaledBorrows .rayMul(reserve.borrowIndex);
+        
+        uint256 totalBorrow = IVariableDebtToken(reserve.variableDebtTokenAddress).totalSupply();
 
         uint256 borrowRate = interestRateModel.calculateBorrowRate(totalLiq, totalBorrow);
 
