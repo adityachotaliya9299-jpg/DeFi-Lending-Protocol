@@ -575,14 +575,14 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         if (!reserve.isBorrowEnabled) revert LendingPool__BorrowNotEnabled(asset);
 
         // Phase 1: borrow cap check
-{
-    uint256 currentBorrows = (reserve.totalScaledBorrows * reserve.borrowIndex) / 1e27;
-    collateralManager.checkBorrowCap(
-        asset,
-        currentBorrows / 10**IERC20Metadata(asset).decimals(),
-        amount / 10**IERC20Metadata(asset).decimals()
-    );
-}
+        {
+            uint256 currentBorrows = (reserve.totalScaledBorrows * reserve.borrowIndex) / 1e27;
+            collateralManager.checkBorrowCap(
+                asset,
+                currentBorrows / 10**IERC20Metadata(asset).decimals(),
+                amount / 10**IERC20Metadata(asset).decimals()
+            );
+        }
 
         _accrueInterest(asset, reserve);
 
@@ -592,6 +592,13 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
 
         uint256 borrowIndex  = reserve.borrowIndex;
         uint256 scaledAmount = amount.rayDiv(borrowIndex);
+
+        // Phase 2: Mint debt token instead of updating _scaledBorrows
+        IVariableDebtToken(reserve.variableDebtTokenAddress).mint(
+            msg.sender,
+            amount,
+            borrowIndex
+        );
 
         // Update state BEFORE health check (simulate post-borrow state)
         _scaledBorrows[msg.sender][asset] += scaledAmount;
