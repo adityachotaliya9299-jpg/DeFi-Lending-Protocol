@@ -354,11 +354,12 @@ contract EdgeCasesTest is Test {
         assertEq(after_.liquidityIndex, before.liquidityIndex);
     }
 
-    function test_interest_accruesOverLongPeriod() public {
+   function test_interest_accruesOverLongPeriod() public {
         _deposit(bob, address(usdc), 100_000e6);
-        _deposit(alice, address(weth), 10e18); // $20,000 collateral
-       
-        _borrow(alice, address(usdc), 80_000e6);
+        _deposit(alice, address(weth), 10e18); // $20,000 collateral, 80% LTV = max $16k
+        // Borrow 12,000 USDC at 12% pool utilization (12,000 / 100,000) → measurable APR
+        // HF = (20,000 * 85%) / 12,000 = 1.417 ✓
+        _borrow(alice, address(usdc), 12_000e6);
 
         uint256 debtBefore = pool.getUserDebt(alice, address(usdc));
         vm.warp(block.timestamp + 365 days);
