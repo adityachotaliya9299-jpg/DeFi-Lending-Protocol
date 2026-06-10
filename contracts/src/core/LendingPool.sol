@@ -885,7 +885,10 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     function getUserDebt(address user, address asset)
         external view override returns (uint256)
     {
-        return _scaledBorrows[user][asset].rayMul(_reserves[asset].borrowIndex);
+        
+        ReserveData storage reserve = _reserves[asset];
+        if (!reserve.isActive) return 0;
+        return IVariableDebtToken(reserve.variableDebtTokenAddress).balanceOf(user);
     }
 
     function getAssetList() external view returns (address[] memory) {
