@@ -420,9 +420,10 @@ contract LendingPoolTest is Test {
 
     function test_interestAccrual_debtGrowsOverTime() public {
         _deposit(carol, address(usdc), 100_000e6);
-        _deposit(alice, address(weth), 10e18);
-        // Borrow at 50% utilization (50,000 / 100,000) to get measurable interest
-        _borrow(alice, address(usdc), 50_000e6);
+        _deposit(alice, address(weth), 10e18); // $20,000, 80% LTV = max $16k
+        // Borrow 10,000 USDC (10% pool util) to generate measurable interest
+        // HF = (20,000 * 85%) / 10,000 = 1.7 ✓
+        _borrow(alice, address(usdc), 10_000e6);
 
         uint256 debtBefore = pool.getUserDebt(alice, address(usdc));
 
