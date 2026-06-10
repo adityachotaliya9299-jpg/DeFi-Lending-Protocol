@@ -681,6 +681,13 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             repaid      = currentDebt;
         }
 
+        // Phase 2: Burn debt token
+        IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
+            msg.sender,
+            repaid,
+            borrowIndex
+        );
+
         _scaledBorrows[msg.sender][asset] -= scaledRepay;
         reserve.totalScaledBorrows        -= scaledRepay;
 
