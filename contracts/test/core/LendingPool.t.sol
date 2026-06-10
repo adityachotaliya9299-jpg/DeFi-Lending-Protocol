@@ -430,10 +430,10 @@ contract LendingPoolTest is Test {
         vm.warp(block.timestamp + 365 days);
         _refreshFeeds();
 
-        // Touch pool to trigger accrual
-        vm.prank(carol);
+        // Touch pool to trigger accrual — use bob who still has balance
+        vm.prank(bob);
         usdc.approve(address(pool), 1);
-        vm.prank(carol);
+        vm.prank(bob);
         pool.deposit(address(usdc), 1);
 
         uint256 debtAfter = pool.getUserDebt(alice, address(usdc));
