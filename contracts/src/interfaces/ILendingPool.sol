@@ -10,7 +10,7 @@ interface ILendingPool {
 
     // ─── Structs ──────────────────────────────────────────────────────────────
 
-    /**
+    /** 
      * @dev Per-asset reserve state.
      *      All indices start at RAY (1e27) and only increase.
      *      actual_deposit = scaledDeposit * liquidityIndex / RAY
@@ -23,6 +23,7 @@ interface ILendingPool {
         uint256 totalScaledBorrows;   // sum of all (borrow  / borrowIndex)
         uint40  lastUpdateTimestamp;
         address lTokenAddress;        // receipt token
+        address variableDebtTokenAddress;
         bool    isActive;
         bool    isBorrowEnabled;
     }
