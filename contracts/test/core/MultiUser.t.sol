@@ -325,7 +325,7 @@ contract MultiUserTest is Test {
         console2.log("Interest accrued (e6):", (debt - 12_000e6) / 1e6);
 
         // 5. Alice repays with interest
-        usdc.mint(alice, 2_000e6); // cover accrued interest
+        usdc.mint(alice, debt > 12_000e6 ? debt - 12_000e6 : 1_000e6); // cover accrued interest
         _repay(alice, address(usdc), type(uint256).max);
         assertEq(pool.getUserDebt(alice, address(usdc)), 0);
 
