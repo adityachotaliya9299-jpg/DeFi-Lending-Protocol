@@ -790,6 +790,13 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
 
         // ── 5. Update borrower's debt ────────────────────────────────────────
         uint256 scaledDebtRepay = debtAmount.rayDiv(debtReserve.borrowIndex);
+        
+        IVariableDebtToken(debtReserve.variableDebtTokenAddress).burn(
+            borrower,
+            debtAmount,
+            debtReserve.borrowIndex
+        );
+        
         _scaledBorrows[borrower][debtAsset] -= scaledDebtRepay;
         debtReserve.totalScaledBorrows      -= scaledDebtRepay;
         if (_scaledBorrows[borrower][debtAsset] == 0) {
