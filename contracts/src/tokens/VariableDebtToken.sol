@@ -113,6 +113,27 @@ contract VariableDebtToken is ERC20, AccessControl, IVariableDebtToken {
     }
 
     /**
+     * @notice Approve is still allowed for credit delegation.
+     * @dev    Delegates to ERC20.approve().
+     */
+    function approve(address spender, uint256 amount)
+        public override(ERC20, IVariableDebtToken) returns (bool)
+    {
+        return super.approve(spender, amount);
+    }
+
+    /**
+     * @notice Returns the allowance amount.
+     * @dev    Delegates to ERC20.allowance().
+     */
+    function allowance(address owner, address spender)
+        public view override(ERC20, IVariableDebtToken) returns (uint256)
+    {
+        return super.allowance(owner, spender);
+    }
+
+    
+    /**
      * @notice Returns total debt INCLUDING accrued interest.
      */
     function totalSupply()
