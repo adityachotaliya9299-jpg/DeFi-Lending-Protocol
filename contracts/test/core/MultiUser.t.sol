@@ -308,9 +308,9 @@ contract MultiUserTest is Test {
         _deposit(carol, address(usdc), 100_000e6);
 
         // 2. Alice deposits WETH collateral and borrows USDC
-        _deposit(alice, address(weth), 10e18); // $20,000 collateral
-        // Borrow at high utilization (75%) to generate measurable interest
-        _borrow(alice, address(usdc), 75_000e6); // 75% of pool utilization
+        _deposit(alice, address(weth), 10e18); // $20,000 collateral, 80% LTV = max $16k
+        // Borrow 12,000 USDC (12% pool util) → HF = (20,000*85%)/12,000 = 1.417
+        _borrow(alice, address(usdc), 12_000e6);
 
         // 3. Warp 1 year — meaningful interest accumulates
         vm.warp(block.timestamp + 365 days);
