@@ -72,8 +72,8 @@ interface ILendingPool {
 
     function deposit(address asset, uint256 amount) external;
     function withdraw(address asset, uint256 amount) external returns (uint256 withdrawn);
-    function borrow(address asset, uint256 amount) external;
-    function repay(address asset, uint256 amount) external returns (uint256 repaid);
+   function borrow(address asset, uint256 amount, uint8 mode) external;
+     function repay(address asset, uint256 amount, uint8 mode) external returns (uint256 repaid);
     function liquidate(
         address borrower,
         address debtAsset,
