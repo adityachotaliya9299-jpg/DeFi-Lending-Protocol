@@ -76,7 +76,7 @@ contract VariableDebtToken is ERC20, AccessControl, IVariableDebtToken {
      * @notice Transfer is BLOCKED. Debt cannot be transferred between users.
      * @dev    Always reverts to enforce no-transfer invariant.
      */
-    function transfer(address, uint256) public pure override(ERC20) returns (bool) {
+    function transfer(address, uint256) public pure override(ERC20, IVariableDebtToken) returns (bool) {
         revert VariableDebtToken__NonTransferable();
     }
 
