@@ -214,16 +214,25 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             string.concat("v", sym)
         );
 
+        // Phase 3.1 — NEW: Deploy stableDebtToken
+        StableDebtToken sToken = new StableDebtToken(
+            address(this),
+            asset,
+            string.concat("Stable Debt ", sym),
+            string.concat("s", sym)
+        );
+
         _reserves[asset] = ReserveData({
-            liquidityIndex:          uint128(RAY),
-            borrowIndex:             uint128(RAY),
-            totalScaledDeposits:     0,
-            totalScaledBorrows:      0,
-            lastUpdateTimestamp:     uint40(block.timestamp),
-            lTokenAddress:           address(lToken),
+            liquidityIndex:           uint128(RAY),
+            borrowIndex:              uint128(RAY),
+            totalScaledDeposits:      0,
+            totalScaledBorrows:       0,
+            lastUpdateTimestamp:      uint40(block.timestamp),
+            lTokenAddress:            address(lToken),
             variableDebtTokenAddress: address(vToken),  // Phase 2
-            isActive:                true,
-            isBorrowEnabled:         collateralManager.isBorrowEnabled(asset)
+            stableDebtTokenAddress:   address(sToken),  // Phase 3.1 — NEW
+            isActive:                 true,
+            isBorrowEnabled:          collateralManager.isBorrowEnabled(asset)
         });
 
         _assetList.push(asset);
