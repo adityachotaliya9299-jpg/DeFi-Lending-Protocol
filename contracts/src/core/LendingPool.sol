@@ -205,15 +205,23 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             address(this)  // minter
         );
 
+        VariableDebtToken vToken = new VariableDebtToken(
+            address(this),
+            asset,
+            string.concat("Variable Debt ", sym),
+            string.concat("v", sym)
+        );
+
         _reserves[asset] = ReserveData({
-            liquidityIndex:      uint128(RAY),
-            borrowIndex:         uint128(RAY),
-            totalScaledDeposits: 0,
-            totalScaledBorrows:  0,
-            lastUpdateTimestamp: uint40(block.timestamp),
-            lTokenAddress:       address(lToken),
-            isActive:            true,
-            isBorrowEnabled:     collateralManager.isBorrowEnabled(asset)
+            liquidityIndex:          uint128(RAY),
+            borrowIndex:             uint128(RAY),
+            totalScaledDeposits:     0,
+            totalScaledBorrows:      0,
+            lastUpdateTimestamp:     uint40(block.timestamp),
+            lTokenAddress:           address(lToken),
+            variableDebtTokenAddress: address(vToken),  // Phase 2
+            isActive:                true,
+            isBorrowEnabled:         collateralManager.isBorrowEnabled(asset)
         });
 
         _assetList.push(asset);
