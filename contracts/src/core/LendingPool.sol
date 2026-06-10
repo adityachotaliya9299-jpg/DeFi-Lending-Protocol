@@ -623,6 +623,25 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         _scaledBorrows[msg.sender][asset] += scaledAmount;
         reserve.totalScaledBorrows        += scaledAmount;
 
+        //  Mint debt token based on mode
+        if (mode == 1) {
+            // Variable rate — mint to variable debt token
+            IVariableDebtToken(reserve.variableDebtTokenAddress).mint(
+                msg.sender,
+                amount,
+                borrowIndex
+            );
+        } else {
+            // Stable rate — mint to stable debt token
+            // For now, use fixed stable rate; can be made dynamic later
+            uint256 stableRate = 1e15; // 0.1% per second (~3% APR) — TODO: make dynamic
+            IStableDebtToken(reserve.stableDebtTokenAddress).mint(
+                msg.sender,
+                amount,
+                stableRate
+            );
+        }
+
         if (!_hasBorrow[msg.sender][asset]) {
             require(_userBorrows[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
             _userBorrows[msg.sender].push(asset);
