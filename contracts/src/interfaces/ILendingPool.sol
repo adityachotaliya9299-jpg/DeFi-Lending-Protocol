@@ -24,6 +24,7 @@ interface ILendingPool {
         uint40  lastUpdateTimestamp;
         address lTokenAddress;        // receipt token
         address variableDebtTokenAddress;
+        address stableDebtTokenAddress;
         bool    isActive;
         bool    isBorrowEnabled;
     }
