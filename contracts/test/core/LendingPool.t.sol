@@ -143,6 +143,12 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
     }
 
+    /// @dev Refresh oracle feeds after vm.warp to prevent staleness reverts.
+    function _refreshFeeds() internal {
+        ethFeed.setUpdatedAt(block.timestamp);
+        usdcFeed.setUpdatedAt(block.timestamp);
+    }
+
     // =========================================================================
     //  initAsset
     // =========================================================================
