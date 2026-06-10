@@ -21,6 +21,8 @@ import {EfficiencyMode}      from "../modes/EfficiencyMode.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {VariableDebtToken}  from "../tokens/VariableDebtToken.sol";
 import {IVariableDebtToken} from "../interfaces/IVariableDebtToken.sol";
+import {StableDebtToken}    from "../tokens/StableDebtToken.sol";
+import {IStableDebtToken}   from "../interfaces/IStableDebtToken.sol";
 
 /**
  * @title  LendingPool
