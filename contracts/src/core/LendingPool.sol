@@ -689,9 +689,10 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      *         Pass type(uint256).max to repay all outstanding debt.
      * @return repaid  Actual amount repaid.
      */
-    function repay(address asset, uint256 amount)
+   function repay(address asset, uint256 amount, uint8 mode)
         external override nonReentrant returns (uint256 repaid)
     {
+        require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
         // Phase 1: supply cap check
