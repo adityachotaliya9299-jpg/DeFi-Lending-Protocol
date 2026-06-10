@@ -939,8 +939,43 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         return IVariableDebtToken(reserve.variableDebtTokenAddress).balanceOf(user);
     }
 
-    function getAssetList() external view returns (address[] memory) {
+function getAssetList() external view returns (address[] memory) {
         return _assetList;
+    }
+
+    //  NEW getter functions
+    function getReserveStableDebtToken(address asset)
+        external view returns (address)
+    {
+        return _reserves[asset].stableDebtTokenAddress;
+    }
+
+    function getUserDebtByMode(address user, address asset, uint8 mode)
+        external view returns (uint256)
+    {
+        require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
+        ReserveData memory reserve = _reserves[asset];
+        if (mode == 1) {
+            return IVariableDebtToken(reserve.variableDebtTokenAddress)
+                .balanceOf(user);
+        } else {
+            return IStableDebtToken(reserve.stableDebtTokenAddress)
+                .balanceOf(user);
+        }
+    }
+
+    function getReserveTotalDebtByMode(address asset, uint8 mode)
+        external view returns (uint256)
+    {
+        require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
+        ReserveData memory reserve = _reserves[asset];
+        if (mode == 1) {
+            return IVariableDebtToken(reserve.variableDebtTokenAddress)
+                .totalSupply();
+        } else {
+            return IStableDebtToken(reserve.stableDebtTokenAddress)
+                .totalSupply();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
