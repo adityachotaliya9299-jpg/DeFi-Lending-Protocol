@@ -576,9 +576,10 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      * @notice Borrow `amount` of `asset` against deposited collateral.
      *         Health factor must remain >= 1.0 after the borrow.
      */
-    function borrow(address asset, uint256 amount)
+    function borrow(address asset, uint256 amount, uint8 mode)
         external override nonReentrant whenNotPaused
     {
+        require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
         // Phase 1: supply cap check
