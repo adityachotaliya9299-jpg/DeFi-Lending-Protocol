@@ -706,26 +706,42 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         }
         _accrueInterest(asset, reserve);
 
-        uint256 borrowIndex   = reserve.borrowIndex;
-        uint256 scaledDebt    = _scaledBorrows[msg.sender][asset];
-        uint256 currentDebt   = scaledDebt.rayMul(borrowIndex);
+        // Phase 3.1 — Get debt based on mode
+        uint256 currentDebt;
+        if (mode == 1) {
+            currentDebt = IVariableDebtToken(reserve.variableDebtTokenAddress)
+                .balanceOf(msg.sender);
+        } else {
+            currentDebt = IStableDebtToken(reserve.stableDebtTokenAddress)
+                .balanceOf(msg.sender);
+        }
 
         if (currentDebt == 0) revert LendingPool__InsufficientBalance();
 
         repaid = amount > currentDebt ? currentDebt : amount;
 
-        uint256 scaledRepay = repaid.rayDiv(borrowIndex);
-        if (scaledDebt - scaledRepay < 1) {
+        uint256 borrowIndex   = reserve.borrowIndex;
+        uint256 scaledDebt    = _scaledBorrows[msg.sender][asset];
+        uint256 scaledRepay   = repaid.rayDiv(borrowIndex);
+        
+        if (scaledDebt > 0 && (scaledDebt - scaledRepay < 1)) {
             scaledRepay = scaledDebt;
             repaid      = currentDebt;
         }
 
-        // Phase 2: Burn debt token
-        IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
-            msg.sender,
-            repaid,
-            borrowIndex
-        );
+        
+        if (mode == 1) {
+            IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
+                msg.sender,
+                repaid,
+                borrowIndex
+            );
+        } else {
+            IStableDebtToken(reserve.stableDebtTokenAddress).burn(
+                msg.sender,
+                repaid
+            );
+        }
 
         _scaledBorrows[msg.sender][asset] -= scaledRepay;
         reserve.totalScaledBorrows        -= scaledRepay;
