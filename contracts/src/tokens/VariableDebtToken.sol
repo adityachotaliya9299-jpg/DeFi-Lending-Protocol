@@ -87,7 +87,7 @@ contract VariableDebtToken is ERC20, AccessControl, IVariableDebtToken {
         address,
         address,
         uint256
-    ) public pure override(ERC20) returns (bool) {
+    ) public pure override(ERC20, IVariableDebtToken) returns (bool) {
         revert VariableDebtToken__NonTransferable();
     }
 
