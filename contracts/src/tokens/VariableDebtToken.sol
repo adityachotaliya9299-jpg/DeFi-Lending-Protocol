@@ -103,7 +103,7 @@ contract VariableDebtToken is ERC20, AccessControl, IVariableDebtToken {
      * @param  user              Address to check balance for.
      * @return Current debt including interest accrued since last mint/burn.
      */
-    function balanceOf(address user) public view override(ERC20, IVariableDebtToken) returns (uint256) {
+   function balanceOf(address user) public view override(ERC20, IVariableDebtToken) returns (uint256) {
         uint256 scaledBal = _scaledBalances[user];
         if (scaledBal == 0) return 0;
 
