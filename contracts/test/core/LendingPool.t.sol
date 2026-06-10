@@ -437,7 +437,7 @@ contract LendingPoolTest is Test {
         pool.deposit(address(usdc), 1);
 
         uint256 debtAfter = pool.getUserDebt(alice, address(usdc));
-        // At 50% utilization, interest should be measurable over 1 year
+        // At 10% utilization, interest should be measurable over 1 year
         assertGe(debtAfter, debtBefore, "debt should accrue interest");
         // Verify growth is non-zero
         uint256 interest = debtAfter > debtBefore ? debtAfter - debtBefore : 0;
