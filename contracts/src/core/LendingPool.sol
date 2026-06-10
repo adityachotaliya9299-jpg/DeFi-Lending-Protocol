@@ -19,6 +19,8 @@ import {IFlashLoanReceiver}  from "../interfaces/IFlashLoanReceiver.sol";
 import {IsolationMode}       from "../modes/IsolationMode.sol";
 import {EfficiencyMode}      from "../modes/EfficiencyMode.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {VariableDebtToken}  from "../tokens/VariableDebtToken.sol";
+import {IVariableDebtToken} from "../interfaces/IVariableDebtToken.sol";
 
 /**
  * @title  LendingPool
