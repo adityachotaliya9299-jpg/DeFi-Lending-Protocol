@@ -88,11 +88,11 @@ contract MultiUserTest is Test {
         pool.deposit(token, amt); vm.stopPrank();
     }
     function _borrow(address user, address token, uint256 amt) internal {
-        vm.prank(user); pool.borrow(token, amt);
+        vm.prank(user); pool.borrow(token, amt, 1);
     }
     function _repay(address user, address token, uint256 amt) internal {
         vm.startPrank(user); MockERC20(token).approve(address(pool), amt);
-        pool.repay(token, amt); vm.stopPrank();
+        pool.repay(token, amt, 1); vm.stopPrank();
     }
 
     /// @dev Refresh oracle feeds after vm.warp to prevent staleness reverts.
