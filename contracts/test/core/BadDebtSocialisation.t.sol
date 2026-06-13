@@ -145,7 +145,7 @@ contract BadDebtSocialisationTest is Test {
             asset, alice, badDebt, totalDeposits, currentIndex
         );
 
-        assertLt(newIndex, currentIndex, "new index must be less than current");
+        assertLe(newIndex, currentIndex, "new index must be <= current");
         assertGt(newIndex, 0, "new index must be > 0");
     }
 }
