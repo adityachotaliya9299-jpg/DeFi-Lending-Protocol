@@ -89,7 +89,7 @@ contract EdgeCasesTest is Test {
     }
 
     function _borrow(address user, address token, uint256 amt) internal {
-        vm.prank(user); pool.borrow(token, amt);
+        vm.prank(user); pool.borrow(token, amt, 1);
     }
 
     /// @dev After vm.warp, oracle staleness guards will trigger unless feeds
@@ -132,7 +132,7 @@ contract EdgeCasesTest is Test {
 
         vm.prank(alice);
         vm.expectRevert();
-        pool.borrow(address(usdc), 100e6);
+        pool.borrow(address(usdc), 100e6, 1);
     }
 
     function test_oracle_priceDrops50pct_makesPositionLiquidatable() public {
@@ -153,8 +153,8 @@ contract EdgeCasesTest is Test {
         _deposit(alice, address(weth), 10e18);
         _deposit(carol, address(weth), 5e18);
 
-        vm.prank(alice); pool.borrow(address(usdc), 13_000e6);
-        vm.prank(carol); pool.borrow(address(usdc), 6_500e6);
+        vm.prank(alice); pool.borrow(address(usdc), 13_000e6, 1);
+        vm.prank(carol); pool.borrow(address(usdc), 6_500e6, 1);
 
         ethFeed.setPrice(1_200e8);
 
@@ -199,7 +199,7 @@ contract EdgeCasesTest is Test {
         _deposit(bob, address(weth), 10e18);
         vm.prank(bob);
         vm.expectRevert(ILendingPool.LendingPool__InsufficientLiquidity.selector);
-        pool.borrow(address(usdc), 1e6);
+        pool.borrow(address(usdc), 1e6, 1);
     }
 
     function test_utilization_0pct_lowestRate() public {
@@ -217,14 +217,14 @@ contract EdgeCasesTest is Test {
     function test_borrow_exactlyAtLtvBoundary() public {
         _deposit(bob, address(usdc), 100_000e6);
         _deposit(alice, address(weth), 1e18);
-        vm.prank(alice); pool.borrow(address(usdc), 1_600e6);
+        vm.prank(alice); pool.borrow(address(usdc), 1_600e6, 1);
         assertGt(pool.getUserHealthFactor(alice), 1e18);
     }
 
     function test_borrow_oneDollarBeyondLtv_stillHealthy() public {
         _deposit(bob, address(usdc), 100_000e6);
         _deposit(alice, address(weth), 1e18);
-        vm.prank(alice); pool.borrow(address(usdc), 1_650e6);
+        vm.prank(alice); pool.borrow(address(usdc), 1_650e6, 1);
         assertGt(pool.getUserHealthFactor(alice), 1e18);
     }
 
@@ -233,7 +233,7 @@ contract EdgeCasesTest is Test {
         _deposit(alice, address(weth), 1e18);
         vm.prank(alice);
         vm.expectRevert();
-        pool.borrow(address(usdc), 1_800e6);
+        pool.borrow(address(usdc), 1_800e6, 1);
     }
 
     // =========================================================================
@@ -249,7 +249,7 @@ contract EdgeCasesTest is Test {
         usdc.mint(alice, 10_000e6);
         vm.startPrank(alice);
         usdc.approve(address(pool), type(uint256).max);
-        uint256 repaid = pool.repay(address(usdc), 2_000e6);
+        uint256 repaid = pool.repay(address(usdc), 2_000e6, 1);
         vm.stopPrank();
 
         assertLe(repaid, debt + 1);
@@ -260,7 +260,7 @@ contract EdgeCasesTest is Test {
         vm.startPrank(alice);
         usdc.approve(address(pool), 1_000e6);
         vm.expectRevert(ILendingPool.LendingPool__InsufficientBalance.selector);
-        pool.repay(address(usdc), 1_000e6);
+        pool.repay(address(usdc), 1_000e6, 1);
         vm.stopPrank();
     }
 
