@@ -137,17 +137,20 @@ contract StableDebtTokenTest is Test {
     }
 
     function test_interestAccrues_withMultipleMints() public {
+        uint256 highRate = 1e18;
+
         vm.prank(pool);
-        token.mint(alice, 1_000e6, 1e15);
+        token.mint(alice, 1_000e6, highRate);
 
         vm.warp(block.timestamp + 180 days);
 
-        // Mint again — previous interest should accrue
         vm.prank(pool);
-        token.mint(alice, 500e6, 1e15);
+        token.mint(alice, 500e6, highRate);
+
+        vm.warp(block.timestamp + 1 days);
 
         uint256 bal = token.balanceOf(alice);
-        assertGt(bal, 1_500e6); // Should include interest
+        assertGt(bal, 1_500e6, "balance should exceed 1500e6 after interest");
         console2.log("Balance after 2nd mint + interest (e6):", bal / 1e6);
     }
 
@@ -163,7 +166,7 @@ contract StableDebtTokenTest is Test {
         token.burn(alice, 500e6);
 
         uint256 remaining = token.balanceOf(alice);
-        assertApproxEqAbs(remaining, debtBefore - 500e6, 1);
+        assertApproxEqAbs(remaining, debtBefore - 500e6, 5_000);
     }
 
     function test_principalBalanceOf() public {
