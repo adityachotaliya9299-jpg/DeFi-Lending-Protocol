@@ -216,7 +216,7 @@ contract PointsAccountingTest is Test {
     // =========================================================================
 
     function _getRate() internal view returns (uint256, uint256, bool) {
-        PointsAccounting.AssetRate memory r = pa.assetRates(asset);
-        return (r.supplyRate, r.borrowRate, r.active);
+        (uint256 supplyRate, uint256 borrowRate, bool active) = pa.assetRates(asset);
+        return (supplyRate, borrowRate, active);
     }
 }
