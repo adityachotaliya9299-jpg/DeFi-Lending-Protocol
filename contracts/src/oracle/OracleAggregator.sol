@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+interface AggregatorV3Interface {
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+    function decimals() external view returns (uint8);
+}
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title OracleAggregator
@@ -19,7 +27,6 @@ import {WadRayMath} from "../math/WadRayMath.sol";
  * - Drop-in replacement for PriceOracle — same getPrice() interface
  */
 contract OracleAggregator is AccessControl {
-    using WadRayMath for uint256;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
