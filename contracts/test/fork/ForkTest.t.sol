@@ -281,7 +281,7 @@ contract ForkTest is Test {
         // 7. Alice borrows USDC
         vm.prank(alice);
         (bool borrowOk,) = pool.call(
-            abi.encodeWithSignature("borrow(address,uint256)", USDC, borrowUsdc)
+            abi.encodeWithSignature("borrow(address,uint256,uint8)", USDC, borrowUsdc, uint8(1))
         );
         assertTrue(borrowOk, "Borrow failed at real price");
 
@@ -321,7 +321,7 @@ contract ForkTest is Test {
 
         // Borrow 79% of collateral value in USDC (just under 80% LTV)
         uint256 borrowUsdc = (ethUsd * 79 * 1e6) / 100;
-        pool.call(abi.encodeWithSignature("borrow(address,uint256)", USDC, borrowUsdc));
+        pool.call(abi.encodeWithSignature("borrow(address,uint256,uint8)", USDC, borrowUsdc, uint8(1)));
         vm.stopPrank();
 
         // Check initial HF > 1.0
