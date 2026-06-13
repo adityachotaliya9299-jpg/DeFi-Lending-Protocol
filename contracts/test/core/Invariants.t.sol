@@ -86,7 +86,7 @@ contract InvariantsTest is Test {
     function _dep(address u, address t, uint256 a) internal {
         vm.startPrank(u); MockERC20(t).approve(address(pool), a); pool.deposit(t, a); vm.stopPrank();
     }
-    function _bor(address u, address t, uint256 a) internal { vm.prank(u); pool.borrow(t, a); }
+    function _bor(address u, address t, uint256 a) internal { vm.prank(u); pool.borrow(t, a, 1); }
 
     /// @dev Refresh both oracle feeds to current block.timestamp after vm.warp.
     function _refreshFeeds() internal {
@@ -219,7 +219,7 @@ contract InvariantsTest is Test {
     }
 
     function _borrowExternal(address u, address t, uint256 a) external {
-        vm.prank(u); pool.borrow(t, a);
+        vm.prank(u); pool.borrow(t, a, 1);
     }
 
     // =========================================================================
