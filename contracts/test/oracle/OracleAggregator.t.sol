@@ -22,7 +22,9 @@ contract MockAggV3 {
 
     function setPrice(int256 _answer) external { answer = _answer; }
     function setUpdatedAt(uint256 _t) external { updatedAt = _t; }
-    function makeStale(uint256 staleSince) external { updatedAt = block.timestamp - staleSince; }
+    function makeStale(uint256 staleSince) external {
+        updatedAt = block.timestamp > staleSince ? block.timestamp - staleSince : 0;
+    }
     function makeRevert() external { shouldRevert = true; }
 
     function latestRoundData() external view returns (
@@ -196,7 +198,9 @@ contract OracleAggregatorTest is Test {
     // =========================================================================
 
     function test_getPrice_skipsStaleFeed_usesValid() public {
-        feedA.makeStale(HEARTBEAT + 1); // stale
+        vm.warp(block.timestamp + 7_200); // ensure timestamp > heartbeat
+        feedA.makeStale(HEARTBEAT + 1);   // stale
+        feedB.setUpdatedAt(block.timestamp); // explicitly fresh
         _register2(address(feedA), address(feedB));
 
         // Only 1 valid feed — should revert (need MIN_VALID_FEEDS = 2)
@@ -207,8 +211,11 @@ contract OracleAggregatorTest is Test {
     }
 
     function test_getPrice_skipsStaleFeed_3feeds_stillWorks() public {
+        vm.warp(block.timestamp + 7_200);
         feedA.makeStale(HEARTBEAT + 1); // stale — skip
         _register3(address(feedA), address(feedB), address(feedC));
+        feedB.setUpdatedAt(block.timestamp);
+        feedC.setUpdatedAt(block.timestamp);
         // feedB=$2010 (w=3000), feedC=$1990 (w=3000) are valid
         // Only 2 valid feeds — meets MIN_VALID_FEEDS
         uint256 price = agg.getPrice(asset);
@@ -231,6 +238,7 @@ contract OracleAggregatorTest is Test {
     }
 
     function test_getPrice_allStale_reverts() public {
+        vm.warp(block.timestamp + 7_200);
         feedA.makeStale(HEARTBEAT + 1);
         feedB.makeStale(HEARTBEAT + 1);
         _register2(address(feedA), address(feedB));
@@ -246,8 +254,10 @@ contract OracleAggregatorTest is Test {
     // =========================================================================
 
     function test_getFeedPrices_returnsAllStatuses() public {
+        vm.warp(block.timestamp + 7_200);
         feedA.makeStale(HEARTBEAT + 1);
         _register2(address(feedA), address(feedB));
+        feedB.setUpdatedAt(block.timestamp);
 
         (address[] memory feeds, uint256[] memory prices, bool[] memory valid) =
             agg.getFeedPrices(asset);
