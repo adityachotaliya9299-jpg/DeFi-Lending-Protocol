@@ -486,11 +486,19 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     );
 
     _scaledBorrows[msg.sender][asset] -= scaledRepay;
-    reserve.totalScaledBorrows -= scaledRepay;
+    reserve.totalScaledBorrows        -= scaledRepay;
 
-    if (_scaledBorrows[msg.sender][asset] == 0) {
-        _removeBorrow(msg.sender, asset);
-    }
+        if (_scaledBorrows[msg.sender][asset] == 0) {
+            _removeBorrow(msg.sender, asset);
+            // Also clear variable debt token to keep ERC-20 view consistent
+            uint256 vTokenBal = IVariableDebtToken(reserve.variableDebtTokenAddress)
+                .balanceOf(msg.sender);
+            if (vTokenBal > 0) {
+                IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
+                    msg.sender, vTokenBal, borrowIndex
+                );
+            }
+        }
 
     // Collect reserve factor
     ICollateralManager.AssetConfig memory cfg = collateralManager.getAssetConfig(asset);
@@ -612,34 +620,32 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         uint256 borrowIndex  = reserve.borrowIndex;
         uint256 scaledAmount = amount.rayDiv(borrowIndex);
 
-        // Phase 2: Mint debt token instead of updating _scaledBorrows
-        IVariableDebtToken(reserve.variableDebtTokenAddress).mint(
-            msg.sender,
-            amount,
-            borrowIndex
-        );
-
-        // Update state BEFORE health check (simulate post-borrow state)
-        _scaledBorrows[msg.sender][asset] += scaledAmount;
-        reserve.totalScaledBorrows        += scaledAmount;
-
-        //  Mint debt token based on mode
+        // Mint debt token based on mode
         if (mode == 1) {
-            // Variable rate — mint to variable debt token
+            // Variable rate
             IVariableDebtToken(reserve.variableDebtTokenAddress).mint(
                 msg.sender,
                 amount,
                 borrowIndex
             );
         } else {
-            // Stable rate — mint to stable debt token
-            // For now, use fixed stable rate; can be made dynamic later
-            uint256 stableRate = 1e15; // 0.1% per second (~3% APR) — TODO: make dynamic
+            // Stable rate
+            uint256 stableRate = 1e15;
             IStableDebtToken(reserve.stableDebtTokenAddress).mint(
                 msg.sender,
                 amount,
                 stableRate
             );
+        }
+
+        // Update state BEFORE health check (simulate post-borrow state)
+        _scaledBorrows[msg.sender][asset] += scaledAmount;
+        reserve.totalScaledBorrows        += scaledAmount;
+
+        if (!_hasBorrow[msg.sender][asset]) {
+            require(_userBorrows[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
+            _userBorrows[msg.sender].push(asset);
+            _hasBorrow[msg.sender][asset] = true;
         }
 
         if (!_hasBorrow[msg.sender][asset]) {
@@ -706,48 +712,48 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         }
         _accrueInterest(asset, reserve);
 
-        // Phase 3.1 — Get debt based on mode
-        uint256 currentDebt;
-        if (mode == 1) {
-            currentDebt = IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .balanceOf(msg.sender);
-        } else {
-            currentDebt = IStableDebtToken(reserve.stableDebtTokenAddress)
-                .balanceOf(msg.sender);
-        }
+        uint256 borrowIndex = reserve.borrowIndex;
+        uint256 scaledDebt  = _scaledBorrows[msg.sender][asset];
+        uint256 currentDebt = scaledDebt.rayMul(borrowIndex);
 
         if (currentDebt == 0) revert LendingPool__InsufficientBalance();
 
         repaid = amount > currentDebt ? currentDebt : amount;
 
-        uint256 borrowIndex   = reserve.borrowIndex;
-        uint256 scaledDebt    = _scaledBorrows[msg.sender][asset];
-        uint256 scaledRepay   = repaid.rayDiv(borrowIndex);
-        
-        if (scaledDebt > 0 && (scaledDebt - scaledRepay < 1)) {
+        uint256 scaledRepay = repaid.rayDiv(borrowIndex);
+        if (scaledDebt - scaledRepay < 1) {
             scaledRepay = scaledDebt;
             repaid      = currentDebt;
         }
 
-        
-        if (mode == 1) {
-            IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
-                msg.sender,
-                repaid,
-                borrowIndex
-            );
-        } else {
-            IStableDebtToken(reserve.stableDebtTokenAddress).burn(
-                msg.sender,
-                repaid
-            );
-        }
-
+        // Burn debt token based on mode
+        // Update accounting
         _scaledBorrows[msg.sender][asset] -= scaledRepay;
         reserve.totalScaledBorrows        -= scaledRepay;
 
         if (_scaledBorrows[msg.sender][asset] == 0) {
             _removeBorrow(msg.sender, asset);
+        }
+
+        // Sync debt tokens (ERC-20 view only — not used for internal accounting)
+        if (mode == 1) {
+            uint256 vBal = IVariableDebtToken(reserve.variableDebtTokenAddress)
+                .balanceOf(msg.sender);
+            if (vBal > 0) {
+                uint256 toBurn = vBal > repaid ? repaid : vBal;
+                IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
+                    msg.sender, toBurn, borrowIndex
+                );
+            }
+        } else {
+            uint256 sBal = IStableDebtToken(reserve.stableDebtTokenAddress)
+                .balanceOf(msg.sender);
+            if (sBal > 0) {
+                uint256 toBurn = sBal > repaid ? repaid : sBal;
+                IStableDebtToken(reserve.stableDebtTokenAddress).burn(
+                    msg.sender, toBurn
+                );
+            }
         }
 
         // Collect reserve factor → treasury
@@ -756,9 +762,9 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         uint256 reserveCut = repaid.percentMul(cfg.reserveFactor);
         uint256 toPool     = repaid - reserveCut;
 
-        IERC20(asset).safeTransferFrom(msg.sender, address(this),  toPool);
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), repaid);
         if (reserveCut > 0) {
-            IERC20(asset).safeTransferFrom(msg.sender, treasury, reserveCut);
+            IERC20(asset).safeTransfer(treasury, reserveCut);
             emit ReservesCollected(asset, reserveCut);
         }
 
@@ -839,16 +845,24 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         // ── 5. Update borrower's debt ────────────────────────────────────────
         uint256 scaledDebtRepay = debtAmount.rayDiv(debtReserve.borrowIndex);
         
-        IVariableDebtToken(debtReserve.variableDebtTokenAddress).burn(
-            borrower,
-            debtAmount,
-            debtReserve.borrowIndex
-        );
-        
+        // Cap scaledRepay at actual scaled balance to prevent underflow
+        uint256 borrowerScaled = _scaledBorrows[borrower][debtAsset];
+        if (scaledDebtRepay > borrowerScaled) scaledDebtRepay = borrowerScaled;
+
         _scaledBorrows[borrower][debtAsset] -= scaledDebtRepay;
         debtReserve.totalScaledBorrows      -= scaledDebtRepay;
         if (_scaledBorrows[borrower][debtAsset] == 0) {
             _removeBorrow(borrower, debtAsset);
+        }
+
+        // Sync vToken (ERC-20 view only)
+        uint256 vBal = IVariableDebtToken(debtReserve.variableDebtTokenAddress)
+            .balanceOf(borrower);
+        if (vBal > 0) {
+            uint256 toBurn = vBal > debtAmount ? debtAmount : vBal;
+            IVariableDebtToken(debtReserve.variableDebtTokenAddress).burn(
+                borrower, toBurn, debtReserve.borrowIndex
+            );
         }
 
         // ── 6. Update borrower's collateral ─────────────────────────────────
@@ -933,10 +947,9 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     function getUserDebt(address user, address asset)
         external view override returns (uint256)
     {
-        
         ReserveData storage reserve = _reserves[asset];
         if (!reserve.isActive) return 0;
-        return IVariableDebtToken(reserve.variableDebtTokenAddress).balanceOf(user);
+        return _scaledBorrows[user][asset].rayMul(reserve.borrowIndex);
     }
 
 function getAssetList() external view returns (address[] memory) {
