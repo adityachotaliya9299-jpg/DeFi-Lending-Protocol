@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IStableDebtToken} from "../interfaces/IStableDebtToken.sol";
 import {WadRayMath} from "../math/WadRayMath.sol";
 
@@ -165,10 +165,10 @@ contract StableDebtToken is ERC20, IStableDebtToken {
      * @notice Get actual debt (principal + accrued interest)
      * @dev Calculates on-the-fly: debt = principal * (1 + rate * dt)
      */
-    function balanceOf(address account)
+   function balanceOf(address account)
         public
         view
-        override(ERC20)
+        override(ERC20, IERC20)
         returns (uint256)
     {
         uint256 principal = _principals[account];
@@ -187,7 +187,7 @@ contract StableDebtToken is ERC20, IStableDebtToken {
     /**
      * @notice Get total supply (sum of all principals)
      */
-    function totalSupply() public view override(ERC20) returns (uint256) {
+    function totalSupply() public view override(ERC20, IERC20) returns (uint256) {
         return _ownTotalSupply;
     }
 
@@ -198,7 +198,7 @@ contract StableDebtToken is ERC20, IStableDebtToken {
     function transfer(address, uint256)
         public
         pure
-        override(ERC20)
+        override(ERC20, IERC20)
         returns (bool)
     {
         revert("StableDebtToken__TransferDisabled");
@@ -207,36 +207,20 @@ contract StableDebtToken is ERC20, IStableDebtToken {
     function transferFrom(address, address, uint256)
         public
         pure
-        override(ERC20)
+        override(ERC20, IERC20)
         returns (bool)
     {
         revert("StableDebtToken__TransferDisabled");
     }
 
-    function approve(address, uint256)
+   function approve(address, uint256)
         public
         pure
-        override(ERC20)
+        override(ERC20, IERC20)
         returns (bool)
     {
         revert("StableDebtToken__ApprovalDisabled");
     }
 
-    function increaseAllowance(address, uint256)
-        public
-        pure
-        override(ERC20)
-        returns (bool)
-    {
-        revert("StableDebtToken__ApprovalDisabled");
-    }
-
-    function decreaseAllowance(address, uint256)
-        public
-        pure
-        override(ERC20)
-        returns (bool)
-    {
-        revert("StableDebtToken__ApprovalDisabled");
-    }
+    
 }
