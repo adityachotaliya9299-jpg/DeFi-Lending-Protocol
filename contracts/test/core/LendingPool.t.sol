@@ -133,13 +133,13 @@ contract LendingPoolTest is Test {
 
     function _borrow(address user, address asset, uint256 amount) internal {
         vm.prank(user);
-        pool.borrow(asset, amount);
+        pool.borrow(asset, amount, 1);
     }
 
     function _repay(address user, address asset, uint256 amount) internal {
         vm.startPrank(user);
         MockERC20(asset).approve(address(pool), amount);
-        pool.repay(asset, amount);
+        pool.repay(asset, amount, 1);
         vm.stopPrank();
     }
 
@@ -254,14 +254,14 @@ contract LendingPoolTest is Test {
 
         vm.prank(alice);
         vm.expectRevert();
-        pool.borrow(address(usdc), 1_800e6); // HF = 1700/1800 = 0.944 < 1 → reverts
+        pool.borrow(address(usdc), 1_800e6, 1); // HF = 1700/1800 = 0.944 < 1 → reverts
     }
 
     function test_borrow_zeroAmountReverts() public {
         _deposit(alice, address(weth), 10e18);
         vm.prank(alice);
         vm.expectRevert(ILendingPool.LendingPool__ZeroAmount.selector);
-        pool.borrow(address(usdc), 0);
+        pool.borrow(address(usdc), 0, 1);
     }
 
     function test_borrow_exceedingLiquidityReverts() public {
@@ -269,7 +269,7 @@ contract LendingPoolTest is Test {
         // No USDC in pool
         vm.prank(alice);
         vm.expectRevert(ILendingPool.LendingPool__InsufficientLiquidity.selector);
-        pool.borrow(address(usdc), 1_000e6);
+        pool.borrow(address(usdc), 1_000e6, 1);
     }
 
     function test_borrow_reducesAvailableLiquidity() public {
@@ -314,7 +314,7 @@ contract LendingPoolTest is Test {
 
         vm.startPrank(alice);
         usdc.approve(address(pool), type(uint256).max);
-        pool.repay(address(usdc), type(uint256).max); 
+        pool.repay(address(usdc), type(uint256).max, 1); 
         vm.stopPrank();
 
         assertEq(pool.getUserDebt(alice, address(usdc)), 0);
@@ -343,7 +343,7 @@ contract LendingPoolTest is Test {
         usdc.approve(address(pool), 1_000e6);
         vm.expectEmit(true, true, false, false);
         emit ILendingPool.Repay(address(usdc), alice, 0, alice);
-        pool.repay(address(usdc), 1_000e6);
+        pool.repay(address(usdc), 1_000e6, 1);
         vm.stopPrank();
     }
 
