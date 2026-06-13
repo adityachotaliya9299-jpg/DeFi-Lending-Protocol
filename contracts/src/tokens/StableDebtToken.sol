@@ -7,7 +7,7 @@ import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title StableDebtToken
- * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
+ * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
  * @notice Stable-rate debt token — accrues interest at locked-in rate
  *
  * Key design:
@@ -33,6 +33,9 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
     // user → lastAccrualTimestamp
     mapping(address => uint256) private _lastAccrualTime;
+
+    // Own supply tracking (NOT using ERC20's private _totalSupply)
+    uint256 private _ownTotalSupply;
 
     constructor(
         address _pool,
@@ -73,18 +76,14 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
         // Accrue interest on user's existing debt first
         if (_principals[user] > 0) {
-            uint256 accrued = _accrueInterest(user);
-            _updateBalance(user, _principals[user] + accrued);
+            _accrueInterest(user);
         }
 
         // Add new borrow
         _principals[user] += amount;
         _stableRates[user] = stableRate;
         _lastAccrualTime[user] = block.timestamp;
-
-        uint256 newBalance = _principals[user] + balanceOf(user);
-        _updateBalance(user, newBalance);
-        _totalSupply += amount;
+        _ownTotalSupply += amount;
 
         emit Mint(user, amount, stableRate);
         return true;
@@ -100,19 +99,15 @@ contract StableDebtToken is ERC20, IStableDebtToken {
         require(amount > 0, "StableDebtToken__ZeroAmount");
 
         // Accrue interest first
-        uint256 accrued = _accrueInterest(user);
-        uint256 currentDebt = _principals[user] + accrued;
+        _accrueInterest(user);
+        uint256 currentDebt = balanceOf(user);
 
         require(amount <= currentDebt, "StableDebtToken__RepayTooMuch");
 
-        // Reduce principal proportionally
+        // Reduce principal proportionally to repay amount
         uint256 principalReduction = (amount * _principals[user]) / currentDebt;
         _principals[user] -= principalReduction;
-
-        // Reduce balance
-        uint256 newBalance = balanceOf(user) - amount;
-        _updateBalance(user, newBalance);
-        _totalSupply -= principalReduction;
+        _ownTotalSupply -= principalReduction;
 
         if (_principals[user] == 0) {
             delete _stableRates[user];
@@ -128,33 +123,18 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
     /**
      * @notice Accrue interest on user's stable debt since last update
-     * @dev Called before mint/burn to ensure accurate balances
+     * @dev Updates _lastAccrualTime[user] to block.timestamp
      * @param user Borrower
-     * @return interestAccrued Interest accumulated
      */
-    function _accrueInterest(address user) internal returns (uint256) {
+    function _accrueInterest(address user) internal {
         uint256 principal = _principals[user];
-        if (principal == 0) return 0;
+        if (principal == 0) return;
 
-        uint256 rate = _stableRates[user];
         uint256 timeDelta = block.timestamp - _lastAccrualTime[user];
-        if (timeDelta == 0) return 0;
 
-        // Linear interest: interest = principal * rate * dt
-        uint256 interestFactor = RAY + (rate * timeDelta);
-        uint256 newDebt = principal.rayMul(interestFactor);
-        uint256 interest = newDebt - principal;
-
-        _lastAccrualTime[user] = block.timestamp;
-
-        return interest;
-    }
-
-    /**
-     * @notice Internal helper to update balance in _balances
-     */
-    function _updateBalance(address user, uint256 newBalance) internal {
-        _balances[user] = newBalance;
+        if (timeDelta > 0) {
+            _lastAccrualTime[user] = block.timestamp;
+        }
     }
 
     /**
@@ -162,8 +142,7 @@ contract StableDebtToken is ERC20, IStableDebtToken {
      * @dev supplyRate = average(stableRate) * utilization
      */
     function getSupplyRate() external view returns (uint256) {
-        uint256 totalStableBorrow = _totalSupply;
-        if (totalStableBorrow == 0) return 0;
+        if (_ownTotalSupply == 0) return 0;
         // Placeholder — implement weighted average if needed
         return 0;
     }
@@ -184,6 +163,7 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
     /**
      * @notice Get actual debt (principal + accrued interest)
+     * @dev Calculates on-the-fly: debt = principal * (1 + rate * dt)
      */
     function balanceOf(address account)
         public
@@ -197,10 +177,18 @@ contract StableDebtToken is ERC20, IStableDebtToken {
         uint256 rate = _stableRates[account];
         uint256 timeDelta = block.timestamp - _lastAccrualTime[account];
 
+        // Linear interest: debt = principal * (1 + rate * dt)
         uint256 interestFactor = RAY + (rate * timeDelta);
         uint256 debt = principal.rayMul(interestFactor);
 
         return debt;
+    }
+
+    /**
+     * @notice Get total supply (sum of all principals)
+     */
+    function totalSupply() public view override(ERC20) returns (uint256) {
+        return _ownTotalSupply;
     }
 
     // =========================================================================
@@ -209,6 +197,7 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
     function transfer(address, uint256)
         public
+        pure
         override(ERC20)
         returns (bool)
     {
@@ -217,6 +206,7 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
     function transferFrom(address, address, uint256)
         public
+        pure
         override(ERC20)
         returns (bool)
     {
@@ -225,6 +215,25 @@ contract StableDebtToken is ERC20, IStableDebtToken {
 
     function approve(address, uint256)
         public
+        pure
+        override(ERC20)
+        returns (bool)
+    {
+        revert("StableDebtToken__ApprovalDisabled");
+    }
+
+    function increaseAllowance(address, uint256)
+        public
+        pure
+        override(ERC20)
+        returns (bool)
+    {
+        revert("StableDebtToken__ApprovalDisabled");
+    }
+
+    function decreaseAllowance(address, uint256)
+        public
+        pure
         override(ERC20)
         returns (bool)
     {
