@@ -34,7 +34,7 @@ contract RiskGovernanceTest is Test {
     }
 
     function _propose() internal returns (uint256 id) {
-        return gov.propose(asset, RiskGovernance.PARAM_LTV, 7_500);
+        return gov.propose(asset, 0, 7_500); // 0 = PARAM_LTV
     }
 
     function _passAndExecute(uint256 id) internal {
@@ -55,7 +55,7 @@ contract RiskGovernanceTest is Test {
 
         assertTrue(p.exists);
         assertEq(p.asset, asset);
-        assertEq(p.paramType, RiskGovernance.PARAM_LTV);
+        assertEq(p.paramType, 0); // 0 = PARAM_LTV
         assertEq(p.newValue, 7_500);
     }
 
@@ -71,7 +71,7 @@ contract RiskGovernanceTest is Test {
     }
 
     function test_propose_invalidParamReverts() public {
-        vm.expectRevert(abi.encodeWithSelector(RiskGovernance.RiskGov__InvalidParam.selector, 9));
+        vm.expectRevert(abi.encodeWithSelector(RiskGovernance.RiskGov__InvalidParam.selector, uint8(9)));
         gov.propose(asset, 9, 7_500);
     }
 
