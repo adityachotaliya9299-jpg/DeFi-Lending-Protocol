@@ -81,19 +81,19 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
     function depositSenior(uint256 amount) external nonReentrant returns (uint256 shares) {
         if (amount == 0) revert TrancheVault__ZeroAmount();
 
-        uint256 totalTVL = seniorTVL + juniorTVL;
+        uint256 currentTotalTVL = seniorTVL + juniorTVL;
 
         // Senior cap: senior can't exceed MAX_SENIOR_RATIO_BPS of total TVL
-        if (totalTVL > 0) {
+        if (currentTotalTVL > 0) {
             uint256 newSeniorTVL = seniorTVL + amount;
-            uint256 newTotal     = totalTVL + amount;
+            uint256 newTotal     = currentTotalTVL + amount;
             if ((newSeniorTVL * BPS_TOTAL) / newTotal > MAX_SENIOR_RATIO_BPS)
                 revert TrancheVault__ExceedsSeniorCap();
         }
 
         // Junior must be >= 20% of total (buffer requirement)
         // Only enforced when there is existing TVL
-        if (totalTVL > 0 && juniorTVL == 0)
+        if (currentTotalTVL > 0 && juniorTVL == 0)
             revert TrancheVault__InsufficientJuniorBuffer();
 
         underlying.safeTransferFrom(msg.sender, address(this), amount);
@@ -156,8 +156,8 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
     function distributeYield(uint256 yieldAmount) external onlyRole(ADMIN_ROLE) {
         if (yieldAmount == 0) revert TrancheVault__ZeroAmount();
 
-        uint256 totalTVL = seniorTVL + juniorTVL;
-        if (totalTVL == 0) return;
+        uint256 currentTotalTVL = seniorTVL + juniorTVL;
+        if (currentTotalTVL == 0) return;
 
         // Senior allocation = min(totalYield, seniorTVL * targetRate)
         uint256 seniorAlloc = (seniorTVL * targetSeniorYieldBps) / BPS_TOTAL;

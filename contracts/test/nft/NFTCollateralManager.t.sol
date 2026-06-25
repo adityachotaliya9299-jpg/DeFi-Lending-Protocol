@@ -257,11 +257,7 @@ contract NFTCollateralManagerTest is Test {
     // =========================================================================
 
     function _getConfig() internal view returns (uint256, uint256, bool) {
-        (uint256 ltv, uint256 bonus, bool supported) = (
-            ncm.collections(address(nft)).ltvBps,
-            ncm.collections(address(nft)).liquidationBonusBps,
-            ncm.collections(address(nft)).supported
-        );
+        (uint256 ltv, uint256 bonus, bool supported) = ncm.collections(address(nft));
         return (ltv, bonus, supported);
     }
 }
