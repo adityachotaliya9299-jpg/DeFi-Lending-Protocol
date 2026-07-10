@@ -6,17 +6,16 @@ import {LoopStrategy} from "../../src/leverage/LoopStrategy.sol";
 
 /**
  * @title LoopStrategyTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 15 tests for leveraged loop strategy
  */
 contract LoopStrategyTest is Test {
-
     LoopStrategy internal strategy;
 
-    address internal admin  = makeAddr("admin");
-    address internal pool   = makeAddr("pool");
-    address internal flash  = makeAddr("flash");
-    address internal alice  = makeAddr("alice");
+    address internal admin = makeAddr("admin");
+    address internal pool = makeAddr("pool");
+    address internal flash = makeAddr("flash");
+    address internal alice = makeAddr("alice");
     address internal colAsset = makeAddr("colAsset");
     address internal borAsset = makeAddr("borAsset");
 
@@ -102,9 +101,13 @@ contract LoopStrategyTest is Test {
 
     function test_openPosition_tooManyLoopsReverts() public {
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(
-            LoopStrategy.LoopStrategy__TooManyLoops.selector, 11, 10
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LoopStrategy.LoopStrategy__TooManyLoops.selector,
+                11,
+                10
+            )
+        );
         strategy.openPosition(colAsset, borAsset, 1_000e6, 11, 7_000);
     }
 
@@ -135,17 +138,23 @@ contract LoopStrategyTest is Test {
     //  Fuzz
     // =========================================================================
 
-    function testFuzz_leverage_alwaysAbove1x(uint256 ltvBps, uint256 loops) public view {
+    function testFuzz_leverage_alwaysAbove1x(
+        uint256 ltvBps,
+        uint256 loops
+    ) public view {
         ltvBps = bound(ltvBps, 100, 9_900);
-        loops  = bound(loops, 1, 10);
+        loops = bound(loops, 1, 10);
         uint256 lev = strategy.calculateLeverage(ltvBps, loops);
         assertGe(lev, 10_000, "leverage always >= 1x");
     }
 
-    function testFuzz_leverage_monotonicInLoops(uint256 ltvBps, uint256 loops) public view {
+    function testFuzz_leverage_monotonicInLoops(
+        uint256 ltvBps,
+        uint256 loops
+    ) public view {
         ltvBps = bound(ltvBps, 100, 9_000);
-        loops  = bound(loops, 1, 9);
-        uint256 levN   = strategy.calculateLeverage(ltvBps, loops);
+        loops = bound(loops, 1, 9);
+        uint256 levN = strategy.calculateLeverage(ltvBps, loops);
         uint256 levNp1 = strategy.calculateLeverage(ltvBps, loops + 1);
         assertLe(levN, levNp1, "more loops = more leverage");
     }

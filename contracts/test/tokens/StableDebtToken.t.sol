@@ -8,7 +8,7 @@ import {WadRayMath} from "../../src/math/WadRayMath.sol";
 
 /**
  * @title StableDebtTokenTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Tests for stable-rate debt token functionality
  */
 contract StableDebtTokenTest is Test {
@@ -233,9 +233,10 @@ contract StableDebtTokenTest is Test {
     //  Fuzz
     // =========================================================================
 
-    function testFuzz_mint_balanceIsAmount(uint256 amount, uint256 rate)
-        public
-    {
+    function testFuzz_mint_balanceIsAmount(
+        uint256 amount,
+        uint256 rate
+    ) public {
         amount = bound(amount, 1e6, 1e12);
         rate = bound(rate, 1e14, 1e17);
 

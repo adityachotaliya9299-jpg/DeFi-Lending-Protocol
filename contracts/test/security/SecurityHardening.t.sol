@@ -6,21 +6,20 @@ import {SecurityHardening} from "../../src/security/SecurityHardening.sol";
 
 /**
  * @title SecurityHardeningTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 12 tests for per-asset circuit breakers and front-running mitigations
  */
 contract SecurityHardeningTest is Test {
-
     SecurityHardening internal sec;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
+    address internal bob = makeAddr("bob");
     address internal asset = makeAddr("asset");
 
     function setUp() public {
         sec = new SecurityHardening(admin);
-        
+
         vm.warp(3601);
     }
 
@@ -32,7 +31,12 @@ contract SecurityHardeningTest is Test {
         vm.prank(admin);
         sec.pauseAsset(asset);
 
-        vm.expectRevert(abi.encodeWithSelector(SecurityHardening.Security__AssetPaused.selector, asset));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SecurityHardening.Security__AssetPaused.selector,
+                asset
+            )
+        );
         sec.requireAssetNotPaused(asset);
     }
 
@@ -94,7 +98,9 @@ contract SecurityHardeningTest is Test {
 
     function test_commitLiquidation_stores() public {
         bytes32 salt = keccak256("salt");
-        bytes32 hash = keccak256(abi.encode(alice, asset, asset, 1_000e6, salt));
+        bytes32 hash = keccak256(
+            abi.encode(alice, asset, asset, 1_000e6, salt)
+        );
 
         vm.prank(bob);
         sec.commitLiquidation(hash);
@@ -104,10 +110,10 @@ contract SecurityHardeningTest is Test {
     }
 
     function test_revealLiquidation_tooEarlyReverts() public {
-        bytes32 salt  = keccak256("salt");
-        address debt  = makeAddr("debt");
-        address coll  = makeAddr("coll");
-        bytes32 hash  = keccak256(abi.encode(alice, debt, coll, 1_000e6, salt));
+        bytes32 salt = keccak256("salt");
+        address debt = makeAddr("debt");
+        address coll = makeAddr("coll");
+        bytes32 hash = keccak256(abi.encode(alice, debt, coll, 1_000e6, salt));
 
         vm.prank(bob);
         sec.commitLiquidation(hash);
@@ -117,7 +123,7 @@ contract SecurityHardeningTest is Test {
         sec.revealLiquidation(alice, debt, coll, 1_000e6, salt);
     }
 
-   function test_revealLiquidation_afterDelaySucceeds() public {
+    function test_revealLiquidation_afterDelaySucceeds() public {
         bytes32 salt = keccak256("salt");
         address debt = makeAddr("debt");
         address coll = makeAddr("coll");
@@ -169,9 +175,13 @@ contract SecurityHardeningTest is Test {
         sec.checkAndUpdateRateLimit(asset, 800e6); // ok
 
         vm.prank(admin);
-        vm.expectRevert(abi.encodeWithSelector(
-            SecurityHardening.Security__RateLimitExceeded.selector, asset, 1_000e6
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SecurityHardening.Security__RateLimitExceeded.selector,
+                asset,
+                1_000e6
+            )
+        );
         sec.checkAndUpdateRateLimit(asset, 300e6); // total 1100 > 1000
     }
 }

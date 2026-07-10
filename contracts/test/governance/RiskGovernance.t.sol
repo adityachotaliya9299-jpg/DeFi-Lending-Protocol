@@ -7,21 +7,20 @@ import {MockERC20} from "../../src/mocks/MockERC20.sol";
 
 /**
  * @title RiskGovernanceTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 12 tests for on-chain risk parameter governance
  */
 contract RiskGovernanceTest is Test {
-
     RiskGovernance internal gov;
-    MockERC20      internal govToken;
+    MockERC20 internal govToken;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
-    address internal cm    = makeAddr("cm");
+    address internal bob = makeAddr("bob");
+    address internal cm = makeAddr("cm");
     address internal asset = makeAddr("asset");
 
-    uint256 constant VOTING_PERIOD   = 3 days;
+    uint256 constant VOTING_PERIOD = 3 days;
     uint256 constant TIMELOCK_PERIOD = 1 days;
 
     function setUp() public {
@@ -30,7 +29,7 @@ contract RiskGovernanceTest is Test {
 
         // Distribute governance tokens
         govToken.mint(alice, 1_000e18);
-        govToken.mint(bob,   500e18);
+        govToken.mint(bob, 500e18);
     }
 
     function _propose() internal returns (uint256 id) {
@@ -71,7 +70,12 @@ contract RiskGovernanceTest is Test {
     }
 
     function test_propose_invalidParamReverts() public {
-        vm.expectRevert(abi.encodeWithSelector(RiskGovernance.RiskGov__InvalidParam.selector, uint8(9)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RiskGovernance.RiskGov__InvalidParam.selector,
+                uint8(9)
+            )
+        );
         gov.propose(asset, 9, 7_500);
     }
 
@@ -142,7 +146,9 @@ contract RiskGovernanceTest is Test {
         uint256 id = _propose();
         _passAndExecute(id);
 
-        vm.expectRevert(RiskGovernance.RiskGov__ProposalAlreadyExecuted.selector);
+        vm.expectRevert(
+            RiskGovernance.RiskGov__ProposalAlreadyExecuted.selector
+        );
         gov.execute(id);
     }
 

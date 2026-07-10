@@ -6,17 +6,16 @@ import {PointsAccounting} from "../../src/points/PointsAccounting.sol";
 
 /**
  * @title PointsAccountingTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 15 tests for protocol incentive points accounting
  */
 contract PointsAccountingTest is Test {
-
     PointsAccounting internal pa;
 
     address internal admin = makeAddr("admin");
-    address internal pool  = makeAddr("pool");
+    address internal pool = makeAddr("pool");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
+    address internal bob = makeAddr("bob");
     address internal asset = makeAddr("asset");
 
     uint256 constant SUPPLY_MODE = 1;
@@ -65,7 +64,7 @@ contract PointsAccountingTest is Test {
         vm.prank(pool);
         pa.updatePosition(alice, asset, SUPPLY_MODE, 1_000e18);
 
-        (uint256 balance,,) = pa.getPosition(alice, asset, SUPPLY_MODE);
+        (uint256 balance, , ) = pa.getPosition(alice, asset, SUPPLY_MODE);
         assertEq(balance, 1_000e18);
     }
 
@@ -85,7 +84,9 @@ contract PointsAccountingTest is Test {
 
     function test_updatePosition_invalidModeReverts() public {
         vm.prank(pool);
-        vm.expectRevert(PointsAccounting.PointsAccounting__InvalidMode.selector);
+        vm.expectRevert(
+            PointsAccounting.PointsAccounting__InvalidMode.selector
+        );
         pa.updatePosition(alice, asset, 3, 1_000e18);
     }
 
@@ -105,7 +106,7 @@ contract PointsAccountingTest is Test {
         uint256 pts = pa.getUserPoints(alice);
         // Expected: 1000e18 * 1e12 * 86400 / 1e18 = 86400e12 points
         assertGt(pts, 0, "points should accrue");
-        assertApproxEqAbs(pts, 1_000e18 * SUPPLY_RATE * 1 days / 1e18, 1e6);
+        assertApproxEqAbs(pts, (1_000e18 * SUPPLY_RATE * 1 days) / 1e18, 1e6);
         console2.log("Points after 1 day:", pts);
     }
 
@@ -121,13 +122,18 @@ contract PointsAccountingTest is Test {
         vm.warp(block.timestamp + 1 days);
 
         pa.accruePoints(alice, asset, SUPPLY_MODE);
-        pa.accruePoints(bob,   asset, BORROW_MODE);
+        pa.accruePoints(bob, asset, BORROW_MODE);
 
         uint256 alicePts = pa.getUserPoints(alice);
-        uint256 bobPts   = pa.getUserPoints(bob);
+        uint256 bobPts = pa.getUserPoints(bob);
 
         assertGt(bobPts, alicePts, "borrowers earn more points");
-        assertApproxEqAbs(bobPts, alicePts * 2, 1e6, "borrow rate is 2x supply");
+        assertApproxEqAbs(
+            bobPts,
+            alicePts * 2,
+            1e6,
+            "borrow rate is 2x supply"
+        );
     }
 
     function test_points_accruePermissionless() public {
@@ -151,7 +157,11 @@ contract PointsAccountingTest is Test {
 
         uint256 pending = pa.getPendingPoints(alice, asset, SUPPLY_MODE);
         assertGt(pending, 0, "should have pending points");
-        assertApproxEqAbs(pending, 1_000e18 * SUPPLY_RATE * 1 days / 1e18, 1e6);
+        assertApproxEqAbs(
+            pending,
+            (1_000e18 * SUPPLY_RATE * 1 days) / 1e18,
+            1e6
+        );
     }
 
     function test_points_zeroBalanceAccruesNothing() public {
@@ -198,7 +208,7 @@ contract PointsAccountingTest is Test {
         uint256 dt
     ) public {
         balance = bound(balance, 1e18, 1_000_000e18);
-        dt      = bound(dt, 1, 365 days);
+        dt = bound(dt, 1, 365 days);
 
         vm.prank(pool);
         pa.updatePosition(alice, asset, SUPPLY_MODE, balance);
@@ -207,7 +217,7 @@ contract PointsAccountingTest is Test {
         pa.accruePoints(alice, asset, SUPPLY_MODE);
 
         uint256 pts = pa.getUserPoints(alice);
-        uint256 expected = balance * SUPPLY_RATE * dt / 1e18;
+        uint256 expected = (balance * SUPPLY_RATE * dt) / 1e18;
         assertApproxEqAbs(pts, expected, 1e6);
     }
 
@@ -216,7 +226,9 @@ contract PointsAccountingTest is Test {
     // =========================================================================
 
     function _getRate() internal view returns (uint256, uint256, bool) {
-        (uint256 supplyRate, uint256 borrowRate, bool active) = pa.assetRates(asset);
+        (uint256 supplyRate, uint256 borrowRate, bool active) = pa.assetRates(
+            asset
+        );
         return (supplyRate, borrowRate, active);
     }
 }

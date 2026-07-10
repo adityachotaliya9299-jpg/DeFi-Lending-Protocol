@@ -7,19 +7,18 @@ import {MockERC20} from "../../src/mocks/MockERC20.sol";
 
 /**
  * @title MulticallBatchTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 10 tests for multicall batch utility
  */
 contract MulticallBatchTest is Test {
-
     MulticallBatch internal mc;
-    MockERC20      internal tokenA;
-    MockERC20      internal tokenB;
+    MockERC20 internal tokenA;
+    MockERC20 internal tokenB;
 
     address internal alice = makeAddr("alice");
 
     function setUp() public {
-        mc     = new MulticallBatch();
+        mc = new MulticallBatch();
         tokenA = new MockERC20("Token A", "TKA", 18);
         tokenB = new MockERC20("Token B", "TKB", 18);
 
@@ -27,9 +26,10 @@ contract MulticallBatchTest is Test {
         tokenB.mint(alice, 1_000e18);
     }
 
-    function _call(address target, bytes memory data) internal pure
-        returns (MulticallBatch.Call memory)
-    {
+    function _call(
+        address target,
+        bytes memory data
+    ) internal pure returns (MulticallBatch.Call memory) {
         return MulticallBatch.Call({target: target, data: data, value: 0});
     }
 
@@ -51,8 +51,14 @@ contract MulticallBatchTest is Test {
 
     function test_executeBatch_multipleCalls() public {
         MulticallBatch.Call[] memory calls = new MulticallBatch.Call[](2);
-        calls[0] = _call(address(tokenA), abi.encodeWithSignature("totalSupply()"));
-        calls[1] = _call(address(tokenB), abi.encodeWithSignature("totalSupply()"));
+        calls[0] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("totalSupply()")
+        );
+        calls[1] = _call(
+            address(tokenB),
+            abi.encodeWithSignature("totalSupply()")
+        );
 
         MulticallBatch.Result[] memory results = mc.executeBatch(calls);
         assertEq(results.length, 2);
@@ -62,11 +68,23 @@ contract MulticallBatchTest is Test {
 
     function test_executeBatch_failureReverts() public {
         MulticallBatch.Call[] memory calls = new MulticallBatch.Call[](2);
-        calls[0] = _call(address(tokenA), abi.encodeWithSignature("totalSupply()"));
+        calls[0] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("totalSupply()")
+        );
         // Second call will fail (bad selector)
-        calls[1] = _call(address(tokenA), abi.encodeWithSignature("nonExistentFunction()"));
+        calls[1] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("nonExistentFunction()")
+        );
 
-        vm.expectRevert(abi.encodeWithSelector(MulticallBatch.Multicall__CallFailed.selector, 1, bytes("")));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MulticallBatch.Multicall__CallFailed.selector,
+                1,
+                bytes("")
+            )
+        );
         mc.executeBatch(calls);
     }
 
@@ -94,8 +112,14 @@ contract MulticallBatchTest is Test {
 
     function test_tryExecuteBatch_continuesOnFailure() public {
         MulticallBatch.Call[] memory calls = new MulticallBatch.Call[](2);
-        calls[0] = _call(address(tokenA), abi.encodeWithSignature("nonExistent()"));
-        calls[1] = _call(address(tokenA), abi.encodeWithSignature("totalSupply()"));
+        calls[0] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("nonExistent()")
+        );
+        calls[1] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("totalSupply()")
+        );
 
         MulticallBatch.Result[] memory results = mc.tryExecuteBatch(calls);
         assertFalse(results[0].success);
@@ -104,9 +128,18 @@ contract MulticallBatchTest is Test {
 
     function test_tryExecuteBatch_returnsAllResults() public {
         MulticallBatch.Call[] memory calls = new MulticallBatch.Call[](3);
-        calls[0] = _call(address(tokenA), abi.encodeWithSignature("totalSupply()"));
-        calls[1] = _call(address(tokenB), abi.encodeWithSignature("totalSupply()"));
-        calls[2] = _call(address(tokenA), abi.encodeWithSignature("totalSupply()"));
+        calls[0] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("totalSupply()")
+        );
+        calls[1] = _call(
+            address(tokenB),
+            abi.encodeWithSignature("totalSupply()")
+        );
+        calls[2] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("totalSupply()")
+        );
 
         MulticallBatch.Result[] memory results = mc.tryExecuteBatch(calls);
         assertEq(results.length, 3);
@@ -121,8 +154,14 @@ contract MulticallBatchTest is Test {
 
     function test_aggregateStatic_viewCalls() public view {
         MulticallBatch.Call[] memory calls = new MulticallBatch.Call[](2);
-        calls[0] = _call(address(tokenA), abi.encodeWithSignature("totalSupply()"));
-        calls[1] = _call(address(tokenB), abi.encodeWithSignature("totalSupply()"));
+        calls[0] = _call(
+            address(tokenA),
+            abi.encodeWithSignature("totalSupply()")
+        );
+        calls[1] = _call(
+            address(tokenB),
+            abi.encodeWithSignature("totalSupply()")
+        );
 
         MulticallBatch.Result[] memory results = mc.aggregateStatic(calls);
         assertEq(results.length, 2);
@@ -136,8 +175,8 @@ contract MulticallBatchTest is Test {
 
     function test_getBlockInfo_returnsCorrectValues() public view {
         (uint256 bn, uint256 bt, uint256 cid) = mc.getBlockInfo();
-        assertEq(bn,  block.number);
-        assertEq(bt,  block.timestamp);
+        assertEq(bn, block.number);
+        assertEq(bt, block.timestamp);
         assertEq(cid, block.chainid);
     }
 

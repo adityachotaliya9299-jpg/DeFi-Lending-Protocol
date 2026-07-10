@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2}  from "forge-std/Test.sol";
-import {EfficiencyMode}   from "../../src/modes/EfficiencyMode.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {EfficiencyMode} from "../../src/modes/EfficiencyMode.sol";
 
 /**
  * @title  ModesTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Tests for IsolationMode and EfficiencyMode libraries.
  *
  * Note on `pure` test functions:
@@ -31,13 +31,13 @@ contract ModesTest is Test {
     //  E-Mode category validation — happy path
     // =========================================================================
 
-    function test_emode_validateCategory_validParams() pure public {
+    function test_emode_validateCategory_validParams() public pure {
         EfficiencyMode.EModeCategory memory cat = EfficiencyMode.EModeCategory({
-            ltv:                  9_700,
+            ltv: 9_700,
             liquidationThreshold: 9_800,
-            liquidationBonus:     200,
-            label:                "Stablecoins",
-            active:               true
+            liquidationBonus: 200,
+            label: "Stablecoins",
+            active: true
         });
         EfficiencyMode.validateCategory(cat);
     }
@@ -49,11 +49,11 @@ contract ModesTest is Test {
 
     function test_emode_validateCategory_ltvZeroReverts() public {
         EfficiencyMode.EModeCategory memory cat = EfficiencyMode.EModeCategory({
-            ltv:                  0,
+            ltv: 0,
             liquidationThreshold: 9_800,
-            liquidationBonus:     200,
-            label:                "Invalid",
-            active:               true
+            liquidationBonus: 200,
+            label: "Invalid",
+            active: true
         });
         vm.expectRevert();
         helper.validate(cat);
@@ -61,23 +61,23 @@ contract ModesTest is Test {
 
     function test_emode_validateCategory_liqThresholdLteLtvReverts() public {
         EfficiencyMode.EModeCategory memory cat = EfficiencyMode.EModeCategory({
-            ltv:                  9_700,
+            ltv: 9_700,
             liquidationThreshold: 9_700,
-            liquidationBonus:     200,
-            label:                "Invalid",
-            active:               true
+            liquidationBonus: 200,
+            label: "Invalid",
+            active: true
         });
         vm.expectRevert();
         helper.validate(cat);
     }
-    
+
     function test_emode_validateCategory_tooHighThresholdReverts() public {
         EfficiencyMode.EModeCategory memory cat = EfficiencyMode.EModeCategory({
-            ltv:                  9_700,
+            ltv: 9_700,
             liquidationThreshold: 10_000,
-            liquidationBonus:     200,
-            label:                "Invalid",
-            active:               true
+            liquidationBonus: 200,
+            label: "Invalid",
+            active: true
         });
         vm.expectRevert();
         helper.validate(cat);
@@ -87,19 +87,19 @@ contract ModesTest is Test {
     //  E-Mode eligibility checks
     // =========================================================================
 
-    function test_emode_eligible_sameCategoryAndUser() pure public {
+    function test_emode_eligible_sameCategoryAndUser() public pure {
         assertTrue(EfficiencyMode.isEModeEligible(1, 1, 1));
     }
 
-    function test_emode_notEligible_userInNoEmode() pure public {
+    function test_emode_notEligible_userInNoEmode() public pure {
         assertFalse(EfficiencyMode.isEModeEligible(0, 1, 1));
     }
 
-    function test_emode_notEligible_collateralDifferentCategory() pure public {
+    function test_emode_notEligible_collateralDifferentCategory() public pure {
         assertFalse(EfficiencyMode.isEModeEligible(1, 2, 1));
     }
 
-    function test_emode_notEligible_borrowDifferentCategory() pure public {
+    function test_emode_notEligible_borrowDifferentCategory() public pure {
         assertFalse(EfficiencyMode.isEModeEligible(1, 1, 2));
     }
 
@@ -107,45 +107,55 @@ contract ModesTest is Test {
     //  Effective LTV override
     // =========================================================================
 
-    function test_emode_effectiveLtv_usesEmodeWhenEligible() pure public {
+    function test_emode_effectiveLtv_usesEmodeWhenEligible() public pure {
         assertEq(EfficiencyMode.getEffectiveLtv(8_000, 9_700, true), 9_700);
     }
 
-    function test_emode_effectiveLtv_usesStandardWhenNotEligible() pure public {
+    function test_emode_effectiveLtv_usesStandardWhenNotEligible() public pure {
         assertEq(EfficiencyMode.getEffectiveLtv(8_000, 9_700, false), 8_000);
     }
 
-    function test_emode_effectiveLiqThreshold_override() pure public {
-        assertEq(EfficiencyMode.getEffectiveLiqThreshold(8_500, 9_800, true),  9_800);
-        assertEq(EfficiencyMode.getEffectiveLiqThreshold(8_500, 9_800, false), 8_500);
+    function test_emode_effectiveLiqThreshold_override() public pure {
+        assertEq(
+            EfficiencyMode.getEffectiveLiqThreshold(8_500, 9_800, true),
+            9_800
+        );
+        assertEq(
+            EfficiencyMode.getEffectiveLiqThreshold(8_500, 9_800, false),
+            8_500
+        );
     }
 
     // =========================================================================
     //  Realistic category scenarios
     // =========================================================================
 
-    function test_emode_stablecoinCategory_parameters() pure public {
+    function test_emode_stablecoinCategory_parameters() public pure {
         EfficiencyMode.EModeCategory memory cat = EfficiencyMode.EModeCategory({
-            ltv:                  9_700,
+            ltv: 9_700,
             liquidationThreshold: 9_750,
-            liquidationBonus:     200,
-            label:                "Stablecoins",
-            active:               true
+            liquidationBonus: 200,
+            label: "Stablecoins",
+            active: true
         });
         EfficiencyMode.validateCategory(cat);
 
-        uint256 effectiveLtv = EfficiencyMode.getEffectiveLtv(8_500, cat.ltv, true);
+        uint256 effectiveLtv = EfficiencyMode.getEffectiveLtv(
+            8_500,
+            cat.ltv,
+            true
+        );
         assertGt(effectiveLtv, 8_500, "E-Mode LTV must exceed standard");
         assertEq(effectiveLtv, 9_700);
     }
 
-    function test_emode_ethCategory_parameters() pure public {
+    function test_emode_ethCategory_parameters() public pure {
         EfficiencyMode.EModeCategory memory cat = EfficiencyMode.EModeCategory({
-            ltv:                  9_000,
+            ltv: 9_000,
             liquidationThreshold: 9_300,
-            liquidationBonus:     500,
-            label:                "ETH Correlated",
-            active:               true
+            liquidationBonus: 500,
+            label: "ETH Correlated",
+            active: true
         });
         EfficiencyMode.validateCategory(cat);
         assertEq(EfficiencyMode.getEffectiveLtv(8_000, cat.ltv, true), 9_000);
@@ -155,18 +165,24 @@ contract ModesTest is Test {
     //  Isolation mode conceptual tests
     // =========================================================================
 
-    function test_isolationMode_eligibilityCheck() pure public {
+    function test_isolationMode_eligibilityCheck() public pure {
         assertEq(EfficiencyMode.NO_EMODE, 0);
     }
 
-    function test_isolationMode_conceptual_debtCeilingEnforcement() pure public {
+    function test_isolationMode_conceptual_debtCeilingEnforcement()
+        public
+        pure
+    {
         uint256 ceiling = 1_000_000e18;
         uint256 current = 800_000e18;
         uint256 newBorrow = 300_000e18;
         assertGt(current + newBorrow, ceiling, "ceiling would be breached");
     }
 
-    function test_isolationMode_conceptual_onlyStablecoinsAllowed() pure public {
+    function test_isolationMode_conceptual_onlyStablecoinsAllowed()
+        public
+        pure
+    {
         address USDC = address(0x1);
         address WETH = address(0x2);
         assertTrue(USDC != WETH);
@@ -177,9 +193,15 @@ contract ModesTest is Test {
     // =========================================================================
 
     function testFuzz_emode_eligibility_consistentWithCategory(
-        uint8 userCat, uint8 collCat, uint8 borrowCat
-    ) pure public {
-        bool eligible = EfficiencyMode.isEModeEligible(userCat, collCat, borrowCat);
+        uint8 userCat,
+        uint8 collCat,
+        uint8 borrowCat
+    ) public pure {
+        bool eligible = EfficiencyMode.isEModeEligible(
+            userCat,
+            collCat,
+            borrowCat
+        );
         if (userCat == 0) {
             assertFalse(eligible);
         } else if (collCat == userCat && borrowCat == userCat) {
@@ -190,10 +212,14 @@ contract ModesTest is Test {
     }
 
     function testFuzz_emode_effectiveLtv_neverDecreasesInEmode(
-        uint256 standard, uint16 emodeLtv
-    ) pure public {
+        uint256 standard,
+        uint16 emodeLtv
+    ) public pure {
         standard = bound(standard, 1_000, 9_000);
         emodeLtv = uint16(bound(uint256(emodeLtv), standard, 9_899));
-        assertGe(EfficiencyMode.getEffectiveLtv(standard, emodeLtv, true), standard);
+        assertGe(
+            EfficiencyMode.getEffectiveLtv(standard, emodeLtv, true),
+            standard
+        );
     }
 }

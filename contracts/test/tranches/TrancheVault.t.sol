@@ -7,26 +7,25 @@ import {MockERC20} from "../../src/mocks/MockERC20.sol";
 
 /**
  * @title TrancheVaultTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 18 tests for Senior/Junior tranche vault
  */
 contract TrancheVaultTest is Test {
-
     TrancheVault internal vault;
-    MockERC20    internal usdc;
+    MockERC20 internal usdc;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice"); // senior depositor
-    address internal bob   = makeAddr("bob");   // junior depositor
+    address internal bob = makeAddr("bob"); // junior depositor
 
     uint256 constant TARGET_SENIOR_YIELD = 500; // 5% APR in BPS
 
     function setUp() public {
-        usdc  = new MockERC20("USD Coin", "USDC", 6);
+        usdc = new MockERC20("USD Coin", "USDC", 6);
         vault = new TrancheVault(admin, address(usdc), TARGET_SENIOR_YIELD);
 
         usdc.mint(alice, 1_000_000e6);
-        usdc.mint(bob,   1_000_000e6);
+        usdc.mint(bob, 1_000_000e6);
         usdc.mint(admin, 1_000_000e6);
     }
 
@@ -82,7 +81,7 @@ contract TrancheVaultTest is Test {
     }
 
     function test_depositSenior_withJuniorBuffer() public {
-        _depositJunior(bob, 20_000e6);   // 20k junior first
+        _depositJunior(bob, 20_000e6); // 20k junior first
         _depositSenior(alice, 60_000e6); // 60k senior (75% of 80k = ok)
         assertEq(vault.seniorTVL(), 60_000e6);
     }
@@ -125,7 +124,7 @@ contract TrancheVaultTest is Test {
         _depositJunior(bob, 20_000e6);
         _depositSenior(alice, 60_000e6);
 
-        uint256 shares    = vault.seniorToken().balanceOf(alice);
+        uint256 shares = vault.seniorToken().balanceOf(alice);
         uint256 balBefore = usdc.balanceOf(alice);
 
         vm.prank(alice);
@@ -139,7 +138,7 @@ contract TrancheVaultTest is Test {
     // =========================================================================
 
     function test_distributeYield_seniorGetsTargetFirst() public {
-        _depositJunior(bob,   20_000e6);
+        _depositJunior(bob, 20_000e6);
         _depositSenior(alice, 60_000e6);
 
         uint256 seniorBefore = vault.seniorTVL();
@@ -161,7 +160,7 @@ contract TrancheVaultTest is Test {
     }
 
     function test_distributeYield_excessGoesToJunior() public {
-        _depositJunior(bob,   50_000e6);
+        _depositJunior(bob, 50_000e6);
         _depositSenior(alice, 50_000e6);
 
         // Yield large enough that senior gets cap and junior gets rest
@@ -186,7 +185,7 @@ contract TrancheVaultTest is Test {
     // =========================================================================
 
     function test_absorbBadDebt_juniorAbsorbsFirst() public {
-        _depositJunior(bob,   20_000e6);
+        _depositJunior(bob, 20_000e6);
         _depositSenior(alice, 60_000e6);
 
         uint256 seniorBefore = vault.seniorTVL();
@@ -200,7 +199,7 @@ contract TrancheVaultTest is Test {
     }
 
     function test_absorbBadDebt_seniorTakesExcess() public {
-        _depositJunior(bob,   5_000e6);
+        _depositJunior(bob, 5_000e6);
         _depositSenior(alice, 20_000e6);
 
         vm.prank(admin);
@@ -215,7 +214,7 @@ contract TrancheVaultTest is Test {
     // =========================================================================
 
     function test_seniorRatioBps_correct() public {
-        _depositJunior(bob,   25_000e6);
+        _depositJunior(bob, 25_000e6);
         _depositSenior(alice, 75_000e6);
 
         // 75k / 100k = 75%
@@ -223,7 +222,7 @@ contract TrancheVaultTest is Test {
     }
 
     function test_totalTVL_sumOfBothTranches() public {
-        _depositJunior(bob,   20_000e6);
+        _depositJunior(bob, 20_000e6);
         _depositSenior(alice, 60_000e6);
         assertEq(vault.totalTVL(), 80_000e6);
     }
@@ -233,7 +232,7 @@ contract TrancheVaultTest is Test {
     // =========================================================================
 
     function testFuzz_juniorAbsorbsBeforeSenior(uint256 badDebt) public {
-        _depositJunior(bob,   20_000e6);
+        _depositJunior(bob, 20_000e6);
         _depositSenior(alice, 60_000e6);
 
         badDebt = bound(badDebt, 1, 20_000e6); // within junior capacity
@@ -242,6 +241,10 @@ contract TrancheVaultTest is Test {
         vm.prank(admin);
         vault.absorbBadDebt(badDebt);
 
-        assertEq(vault.seniorTVL(), seniorBefore, "senior always protected when junior covers");
+        assertEq(
+            vault.seniorTVL(),
+            seniorBefore,
+            "senior always protected when junior covers"
+        );
     }
 }

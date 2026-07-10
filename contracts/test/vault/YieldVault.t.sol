@@ -20,7 +20,11 @@ contract MockPool {
     }
 
     function deposit(address, uint256 amount) external {
-        MockERC20(address(underlying)).transferFrom(msg.sender, address(this), amount);
+        MockERC20(address(underlying)).transferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
         lToken.mint(msg.sender, amount);
     }
 
@@ -33,19 +37,19 @@ contract MockPool {
 
 /**
  * @title YieldVaultTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 18 tests for ERC-4626 yield vault wrapping LendFi lTokens
  */
 contract YieldVaultTest is Test {
     using WadRayMath for uint256;
 
-    YieldVault  internal vault;
-    MockPool    internal pool;
-    MockERC20   internal usdc;
+    YieldVault internal vault;
+    MockPool internal pool;
+    MockERC20 internal usdc;
 
-    address internal admin    = makeAddr("admin");
-    address internal alice    = makeAddr("alice");
-    address internal bob      = makeAddr("bob");
+    address internal admin = makeAddr("admin");
+    address internal alice = makeAddr("alice");
+    address internal bob = makeAddr("bob");
     address internal treasury = makeAddr("treasury");
 
     function setUp() public {
@@ -64,7 +68,7 @@ contract YieldVaultTest is Test {
 
         // Fund users
         usdc.mint(alice, 100_000e6);
-        usdc.mint(bob,   100_000e6);
+        usdc.mint(bob, 100_000e6);
 
         // Give pool underlying for withdrawals
         usdc.mint(address(pool), 1_000_000e6);
@@ -188,7 +192,11 @@ contract YieldVaultTest is Test {
         vm.prank(alice);
         vault.redeem(shares, alice, alice);
 
-        assertGt(usdc.balanceOf(treasury), treasuryBefore, "treasury should collect fee");
+        assertGt(
+            usdc.balanceOf(treasury),
+            treasuryBefore,
+            "treasury should collect fee"
+        );
     }
 
     function test_redeem_insufficientSharesReverts() public {

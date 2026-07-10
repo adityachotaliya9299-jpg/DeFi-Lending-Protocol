@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2}    from "forge-std/Test.sol";
-import {IERC20}             from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ICollateralManager} from "../../src/interfaces/ICollateralManager.sol";
 
 // ── Minimal Uniswap v3 interfaces for fork testing ────────────────────────────
 interface IUniswapV3Pool {
     function swap(
-        address recipient, bool zeroForOne, int256 amountSpecified,
-        uint160 sqrtPriceLimitX96, bytes calldata data
+        address recipient,
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96,
+        bytes calldata data
     ) external returns (int256 amount0, int256 amount1);
     function token0() external view returns (address);
     function token1() external view returns (address);
@@ -17,31 +20,38 @@ interface IUniswapV3Pool {
 
 interface ISwapRouter {
     struct ExactInputSingleParams {
-        address tokenIn; address tokenOut; uint24 fee;
-        address recipient; uint256 deadline;
-        uint256 amountIn; uint256 amountOutMinimum; uint160 sqrtPriceLimitX96;
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
     }
-    function exactInputSingle(ExactInputSingleParams calldata params)
-        external payable returns (uint256 amountOut);
+    function exactInputSingle(
+        ExactInputSingleParams calldata params
+    ) external payable returns (uint256 amountOut);
 }
 
 interface IWETH9 {
-    function deposit()  external payable;
+    function deposit() external payable;
     function withdraw(uint256) external;
     function approve(address, uint256) external returns (bool);
     function balanceOf(address) external view returns (uint256);
 }
 
 interface IChainlinkAggregator {
-    function latestRoundData() external view returns (
-        uint80, int256, uint256, uint256, uint80
-    );
+    function latestRoundData()
+        external
+        view
+        returns (uint80, int256, uint256, uint256, uint80);
     function decimals() external view returns (uint8);
 }
 
 /**
  * @title  ForkTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Mainnet fork tests — validates protocol behaviour with real
  *         Chainlink prices, real WETH/USDC balances, and real Uniswap v3 liquidity.
  *
@@ -58,31 +68,31 @@ interface IChainlinkAggregator {
  *             4. Flash loan profitability is calculable against real spreads
  */
 contract ForkTest is Test {
-
     // ── Mainnet addresses ─────────────────────────────────────────────────────
-    address constant WETH      = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address constant USDC      = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address constant LINK      = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address constant LINK = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
     address constant SWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564; // Uniswap v3
     address constant ETH_USD_FEED = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address constant USDC_USD_FEED = 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6;
     address constant LINK_USD_FEED = 0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c;
-    address constant WETH_USDC_POOL = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
+    address constant WETH_USDC_POOL =
+        0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
 
     // ── Test actors ───────────────────────────────────────────────────────────
     address alice = makeAddr("alice");
-    address bob   = makeAddr("bob");
+    address bob = makeAddr("bob");
 
     uint256 forkId;
 
     function setUp() public {
-    string memory rpcUrl = vm.envOr(
-        "MAINNET_RPC",
-        string("https://eth-mainnet.g.alchemy.com/v2/demo")  
-    );
-    forkId = vm.createFork(rpcUrl);
-    vm.selectFork(forkId);
-}
+        string memory rpcUrl = vm.envOr(
+            "MAINNET_RPC",
+            string("https://eth-mainnet.g.alchemy.com/v2/demo")
+        );
+        forkId = vm.createFork(rpcUrl);
+        vm.selectFork(forkId);
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  ORACLE FORK TESTS
@@ -95,14 +105,14 @@ contract ForkTest is Test {
      */
     function test_fork_chainlink_eth_price_is_realistic() public {
         IChainlinkAggregator feed = IChainlinkAggregator(ETH_USD_FEED);
-        (, int256 answer,, uint256 updatedAt,) = feed.latestRoundData();
+        (, int256 answer, , uint256 updatedAt, ) = feed.latestRoundData();
 
         console2.log("ETH/USD price (8 decimals):", uint256(answer));
         console2.log("Last updated:", updatedAt);
         console2.log("ETH price in USD:", uint256(answer) / 1e8);
 
         // Price should be between $500 and $20,000 — reasonable mainnet range
-        assertTrue(answer > 500e8,  "ETH price suspiciously low (<$500)");
+        assertTrue(answer > 500e8, "ETH price suspiciously low (<$500)");
         assertTrue(answer < 20_000e8, "ETH price suspiciously high (>$20K)");
 
         // Feed must be fresh (updated within 2 hours — ETH heartbeat)
@@ -111,7 +121,7 @@ contract ForkTest is Test {
 
     function test_fork_chainlink_usdc_price_near_peg() public {
         IChainlinkAggregator feed = IChainlinkAggregator(USDC_USD_FEED);
-        (, int256 answer,,,) = feed.latestRoundData();
+        (, int256 answer, , , ) = feed.latestRoundData();
 
         console2.log("USDC/USD price (8 decimals):", uint256(answer));
 
@@ -122,12 +132,12 @@ contract ForkTest is Test {
 
     function test_fork_chainlink_link_price_is_realistic() public {
         IChainlinkAggregator feed = IChainlinkAggregator(LINK_USD_FEED);
-        (, int256 answer,, uint256 updatedAt,) = feed.latestRoundData();
+        (, int256 answer, , uint256 updatedAt, ) = feed.latestRoundData();
 
         console2.log("LINK/USD price:", uint256(answer) / 1e8);
 
-        assertTrue(answer > 1e8,    "LINK < $1 - unexpected");
-        assertTrue(answer < 200e8,  "LINK > $200 - unexpected");
+        assertTrue(answer > 1e8, "LINK < $1 - unexpected");
+        assertTrue(answer < 200e8, "LINK > $200 - unexpected");
         assertLt(block.timestamp - updatedAt, 86400 * 2, "LINK feed stale");
     }
 
@@ -137,10 +147,10 @@ contract ForkTest is Test {
      */
     function test_fork_price_wad_normalisation() public view {
         IChainlinkAggregator feed = IChainlinkAggregator(ETH_USD_FEED);
-        (, int256 answer,,,) = feed.latestRoundData();
+        (, int256 answer, , , ) = feed.latestRoundData();
 
-        uint256 raw    = uint256(answer);        // 8 decimals
-        uint256 wad    = raw * 1e10;             // → 18 decimals
+        uint256 raw = uint256(answer); // 8 decimals
+        uint256 wad = raw * 1e10; // → 18 decimals
         uint256 usdInt = wad / 1e18;
 
         console2.log("Raw Chainlink price:", raw);
@@ -172,7 +182,11 @@ contract ForkTest is Test {
         console2.log("USDC total supply:", totalSupply / 1e6, "USDC");
 
         // USDC should have tens of billions in supply
-        assertGt(totalSupply, 1_000_000_000 * 1e6, "USDC supply too low - wrong address?");
+        assertGt(
+            totalSupply,
+            1_000_000_000 * 1e6,
+            "USDC supply too low - wrong address?"
+        );
     }
 
     /**
@@ -189,27 +203,36 @@ contract ForkTest is Test {
 
         uint256 usdcBefore = IERC20(USDC).balanceOf(alice);
 
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn:           WETH,
-            tokenOut:          USDC,
-            fee:               500,      // 0.05% pool (WETH/USDC most liquid)
-            recipient:         alice,
-            deadline:          block.timestamp + 300,
-            amountIn:          ethIn,
-            amountOutMinimum:  0,
-            sqrtPriceLimitX96: 0
-        });
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
+            .ExactInputSingleParams({
+                tokenIn: WETH,
+                tokenOut: USDC,
+                fee: 500, // 0.05% pool (WETH/USDC most liquid)
+                recipient: alice,
+                deadline: block.timestamp + 300,
+                amountIn: ethIn,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
 
         uint256 usdcOut = ISwapRouter(SWAP_ROUTER).exactInputSingle(params);
         vm.stopPrank();
 
         uint256 usdcAfter = IERC20(USDC).balanceOf(alice);
-        assertEq(usdcAfter - usdcBefore, usdcOut, "USDC balance mismatch after swap");
+        assertEq(
+            usdcAfter - usdcBefore,
+            usdcOut,
+            "USDC balance mismatch after swap"
+        );
 
         // Should get at least $500 for 1 ETH (price sanity check)
         uint256 impliedPrice = usdcOut / 1e6; // USDC has 6 decimals
         console2.log("1 ETH = ", impliedPrice, "USDC (from real Uniswap)");
-        assertGt(usdcOut, 500 * 1e6, "Got less than $500 for 1 ETH - unexpected");
+        assertGt(
+            usdcOut,
+            500 * 1e6,
+            "Got less than $500 for 1 ETH - unexpected"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -229,15 +252,11 @@ contract ForkTest is Test {
      */
     function test_fork_full_protocol_with_real_prices() public {
         // 1. Deploy protocol
-        (
-            address pool,
-            address collManager,
-            address oracle
-        ) = _deployProtocol();
+        (address pool, address collManager, address oracle) = _deployProtocol();
 
         // 2. Get real ETH price from Chainlink
         IChainlinkAggregator ethFeed = IChainlinkAggregator(ETH_USD_FEED);
-        (, int256 ethPrice,,,) = ethFeed.latestRoundData();
+        (, int256 ethPrice, , , ) = ethFeed.latestRoundData();
         uint256 ethUsd = uint256(ethPrice) / 1e8;
         console2.log("Real ETH price used for test: $", ethUsd);
 
@@ -247,21 +266,26 @@ contract ForkTest is Test {
         deal(USDC, bob, usdcSeedAmount);
         vm.startPrank(bob);
         IERC20(USDC).approve(pool, usdcSeedAmount);
-        (bool seedOk,) = pool.call(
-            abi.encodeWithSignature("deposit(address,uint256)", USDC, usdcSeedAmount)
+        (bool seedOk, ) = pool.call(
+            abi.encodeWithSignature(
+                "deposit(address,uint256)",
+                USDC,
+                usdcSeedAmount
+            )
         );
         assertTrue(seedOk, "USDC seed deposit failed");
         vm.stopPrank();
 
         // 4. Alice gets 5 WETH
         vm.deal(alice, 5 ether + 0.1 ether);
-        vm.prank(alice); IWETH9(WETH).deposit{value: 5 ether}();
+        vm.prank(alice);
+        IWETH9(WETH).deposit{value: 5 ether}();
 
         // 5. Alice deposits 5 WETH as collateral
         vm.startPrank(alice);
         IERC20(WETH).approve(pool, 5 ether);
 
-        (bool ok,) = pool.call(
+        (bool ok, ) = pool.call(
             abi.encodeWithSignature("deposit(address,uint256)", WETH, 5 ether)
         );
         assertTrue(ok, "Deposit failed");
@@ -269,10 +293,10 @@ contract ForkTest is Test {
 
         // 6. Calculate max safe borrow at 80% LTV
         uint256 collateralUsd = 5 * ethUsd;
-        uint256 maxBorrowUsd  = (collateralUsd * 80) / 100;
+        uint256 maxBorrowUsd = (collateralUsd * 80) / 100;
         // Borrow 60% of max to stay safe
-        uint256 borrowUsd     = (maxBorrowUsd * 60) / 100;
-        uint256 borrowUsdc    = borrowUsd * 1e6; // USDC 6 decimals
+        uint256 borrowUsd = (maxBorrowUsd * 60) / 100;
+        uint256 borrowUsdc = borrowUsd * 1e6; // USDC 6 decimals
 
         console2.log("Collateral value: $", collateralUsd);
         console2.log("Max borrow (80% LTV): $", maxBorrowUsd);
@@ -280,8 +304,13 @@ contract ForkTest is Test {
 
         // 7. Alice borrows USDC
         vm.prank(alice);
-        (bool borrowOk,) = pool.call(
-            abi.encodeWithSignature("borrow(address,uint256,uint8)", USDC, borrowUsdc, uint8(1))
+        (bool borrowOk, ) = pool.call(
+            abi.encodeWithSignature(
+                "borrow(address,uint256,uint8)",
+                USDC,
+                borrowUsdc,
+                uint8(1)
+            )
         );
         assertTrue(borrowOk, "Borrow failed at real price");
 
@@ -293,10 +322,19 @@ contract ForkTest is Test {
         uint256 hf = abi.decode(hfData, (uint256));
 
         console2.log("Health factor (1e18 = 1.0):", hf);
-        console2.log("Health factor human:", hf / 1e18, ".", (hf % 1e18) / 1e14);
+        console2.log(
+            "Health factor human:",
+            hf / 1e18,
+            ".",
+            (hf % 1e18) / 1e14
+        );
 
         // HF should be > 1.0 (healthy) and < 5.0 (not suspiciously high)
-        assertGt(hf, 1e18, "HF below 1.0 - under-collateralised at real prices");
+        assertGt(
+            hf,
+            1e18,
+            "HF below 1.0 - under-collateralised at real prices"
+        );
         assertGt(hf, 1.2e18, "HF too close to 1.0 - dangerous at real prices");
     }
 
@@ -306,22 +344,33 @@ contract ForkTest is Test {
      *      to trigger liquidation.
      */
     function test_fork_liquidation_at_real_prices() public {
-        (address pool,,) = _deployProtocol();
+        (address pool, , ) = _deployProtocol();
 
         // Get real price
-        (, int256 ethPrice,,,) = IChainlinkAggregator(ETH_USD_FEED).latestRoundData();
+        (, int256 ethPrice, , , ) = IChainlinkAggregator(ETH_USD_FEED)
+            .latestRoundData();
         uint256 ethUsd = uint256(ethPrice) / 1e8;
 
         // Alice deposits 1 WETH
         vm.deal(alice, 1 ether + 0.1 ether);
-        vm.prank(alice); IWETH9(WETH).deposit{value: 1 ether}();
+        vm.prank(alice);
+        IWETH9(WETH).deposit{value: 1 ether}();
         vm.startPrank(alice);
         IERC20(WETH).approve(pool, 1 ether);
-        pool.call(abi.encodeWithSignature("deposit(address,uint256)", WETH, 1 ether));
+        pool.call(
+            abi.encodeWithSignature("deposit(address,uint256)", WETH, 1 ether)
+        );
 
         // Borrow 79% of collateral value in USDC (just under 80% LTV)
         uint256 borrowUsdc = (ethUsd * 79 * 1e6) / 100;
-        pool.call(abi.encodeWithSignature("borrow(address,uint256,uint8)", USDC, borrowUsdc, uint8(1)));
+        pool.call(
+            abi.encodeWithSignature(
+                "borrow(address,uint256,uint8)",
+                USDC,
+                borrowUsdc,
+                uint8(1)
+            )
+        );
         vm.stopPrank();
 
         // Check initial HF > 1.0
@@ -340,9 +389,9 @@ contract ForkTest is Test {
 
         // Note: in a full implementation we'd override the Chainlink feed storage slot
         // For this fork test we verify the math is correct
-        uint256 newEthUsd   = (ethUsd * 80) / 100;
-        uint256 newCollUsd  = newEthUsd * 1e18; // WAD
-        uint256 debtUsd     = (borrowUsdc * 1e12); // USDC 6→18 decimals
+        uint256 newEthUsd = (ethUsd * 80) / 100;
+        uint256 newCollUsd = newEthUsd * 1e18; // WAD
+        uint256 debtUsd = (borrowUsdc * 1e12); // USDC 6→18 decimals
         uint256 simulatedHF = (newCollUsd * 8500) / (debtUsd * 10000); // liqThreshold 85%
 
         console2.log("Simulated HF after 20% drop:", simulatedHF / 1e18);
@@ -351,7 +400,10 @@ contract ForkTest is Test {
         // 79% LTV × 1/0.8 = 98.75% of liqThreshold (85%) → HF < 1
         bool wouldBeLiquidatable = simulatedHF < 1e18;
         console2.log("Would be liquidatable:", wouldBeLiquidatable);
-        assertTrue(wouldBeLiquidatable, "Should be liquidatable after 20% drop from near-max LTV");
+        assertTrue(
+            wouldBeLiquidatable,
+            "Should be liquidatable after 20% drop from near-max LTV"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -397,9 +449,10 @@ contract ForkTest is Test {
      *      Uses real WETH and USDC contracts, real Chainlink feeds.
      *      Returns addresses needed for testing.
      */
-    function _deployProtocol() internal returns (
-        address pool, address collManager, address oracle
-    ) {
+    function _deployProtocol()
+        internal
+        returns (address pool, address collManager, address oracle)
+    {
         // Import actual contracts
         // Note: These imports reference the local source — compiled for the fork EVM
         vm.startPrank(address(this));
@@ -421,13 +474,23 @@ contract ForkTest is Test {
         );
 
         // Register real Chainlink feeds (not mocks!)
-        (bool regOk,) = oracle.call(abi.encodeWithSignature(
-            "registerFeed(address,address,uint256)", WETH, ETH_USD_FEED, 3600
-        ));
+        (bool regOk, ) = oracle.call(
+            abi.encodeWithSignature(
+                "registerFeed(address,address,uint256)",
+                WETH,
+                ETH_USD_FEED,
+                3600
+            )
+        );
         assertTrue(regOk, "WETH feed registration failed");
-        (regOk,) = oracle.call(abi.encodeWithSignature(
-            "registerFeed(address,address,uint256)", USDC, USDC_USD_FEED, 86400
-        ));
+        (regOk, ) = oracle.call(
+            abi.encodeWithSignature(
+                "registerFeed(address,address,uint256)",
+                USDC,
+                USDC_USD_FEED,
+                86400
+            )
+        );
         assertTrue(regOk, "USDC feed registration failed");
 
         // Deploy CollateralManager
@@ -456,46 +519,50 @@ contract ForkTest is Test {
 
         // Configure assets — use real mainnet addresses for tokens
         // CollateralManager: WETH config
-        (bool cmOk,) = collManager.call(abi.encodeWithSignature(
-            "setAssetConfig(address,(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool))",
-            WETH,
-            ICollateralManager.AssetConfig({
-                ltv: 8_000,
-                liquidationThreshold: 8_500,
-                liquidationBonus: 800,
-                reserveFactor: 1_000,
-                supplyCap: 0,
-                borrowCap: 0,
-                isActive: true,
-                isBorrowEnabled: true
-            })
-        ));
+        (bool cmOk, ) = collManager.call(
+            abi.encodeWithSignature(
+                "setAssetConfig(address,(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool))",
+                WETH,
+                ICollateralManager.AssetConfig({
+                    ltv: 8_000,
+                    liquidationThreshold: 8_500,
+                    liquidationBonus: 800,
+                    reserveFactor: 1_000,
+                    supplyCap: 0,
+                    borrowCap: 0,
+                    isActive: true,
+                    isBorrowEnabled: true
+                })
+            )
+        );
         assertTrue(cmOk, "WETH setAssetConfig failed");
 
         // Init WETH in pool
-        (bool initOk,) = pool.call(
+        (bool initOk, ) = pool.call(
             abi.encodeWithSignature("initAsset(address)", WETH)
         );
         assertTrue(initOk, "WETH initAsset failed");
 
         // Init USDC in pool
-        (cmOk,) = collManager.call(abi.encodeWithSignature(
-            "setAssetConfig(address,(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool))",
-            USDC,
-            ICollateralManager.AssetConfig({
-                ltv: 8_500,
-                liquidationThreshold: 9_000,
-                liquidationBonus: 500,
-                reserveFactor: 500,
-                supplyCap: 0,
-                borrowCap: 0,
-                isActive: true,
-                isBorrowEnabled: true
-            })
-        ));
+        (cmOk, ) = collManager.call(
+            abi.encodeWithSignature(
+                "setAssetConfig(address,(uint256,uint256,uint256,uint256,uint256,uint256,bool,bool))",
+                USDC,
+                ICollateralManager.AssetConfig({
+                    ltv: 8_500,
+                    liquidationThreshold: 9_000,
+                    liquidationBonus: 500,
+                    reserveFactor: 500,
+                    supplyCap: 0,
+                    borrowCap: 0,
+                    isActive: true,
+                    isBorrowEnabled: true
+                })
+            )
+        );
         assertTrue(cmOk, "USDC setAssetConfig failed");
 
-        (initOk,) = pool.call(
+        (initOk, ) = pool.call(
             abi.encodeWithSignature("initAsset(address)", USDC)
         );
         assertTrue(initOk, "USDC initAsset failed");
@@ -504,7 +571,9 @@ contract ForkTest is Test {
     }
 
     function _deploy(bytes memory bytecode) internal returns (address addr) {
-        assembly { addr := create(0, add(bytecode, 0x20), mload(bytecode)) }
+        assembly {
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
         require(addr != address(0), "Deploy failed");
     }
 }

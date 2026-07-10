@@ -1,29 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2}       from "forge-std/Test.sol";
-import {StablecoinVault}       from "../../src/stablecoin/StablecoinVault.sol";
-import {ProtocolStablecoin}    from "../../src/stablecoin/ProtocolStablecoin.sol";
-import {PriceOracle}           from "../../src/oracle/PriceOracle.sol";
-import {MockChainlinkFeed}     from "../../src/mocks/MockChainlinkFeed.sol";
-import {MockERC20}             from "../../src/mocks/MockERC20.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {StablecoinVault} from "../../src/stablecoin/StablecoinVault.sol";
+import {ProtocolStablecoin} from "../../src/stablecoin/ProtocolStablecoin.sol";
+import {PriceOracle} from "../../src/oracle/PriceOracle.sol";
+import {MockChainlinkFeed} from "../../src/mocks/MockChainlinkFeed.sol";
+import {MockERC20} from "../../src/mocks/MockERC20.sol";
 
 /**
  * @title  StablecoinVaultTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Tests for CDP-style stablecoin vault (MakerDAO-inspired pUSD).
  */
 contract StablecoinVaultTest is Test {
-
-    StablecoinVault    internal vault;
+    StablecoinVault internal vault;
     ProtocolStablecoin internal pUSD;
-    PriceOracle        internal oracle;
-    MockERC20          internal weth;
-    MockChainlinkFeed  internal ethFeed;
+    PriceOracle internal oracle;
+    MockERC20 internal weth;
+    MockChainlinkFeed internal ethFeed;
 
-    address internal admin    = makeAddr("admin");
-    address internal alice    = makeAddr("alice");
-    address internal bob      = makeAddr("bob");
+    address internal admin = makeAddr("admin");
+    address internal alice = makeAddr("alice");
+    address internal bob = makeAddr("bob");
     address internal treasury = makeAddr("treasury");
 
     StablecoinVault.CollateralConfig internal ethCfg;
@@ -31,37 +30,46 @@ contract StablecoinVaultTest is Test {
     function setUp() public {
         vm.startPrank(admin);
 
-        weth    = new MockERC20("WETH", "WETH", 18);
+        weth = new MockERC20("WETH", "WETH", 18);
         ethFeed = new MockChainlinkFeed();
         ethFeed.setPrice(2_000e8); // $2,000
 
         oracle = new PriceOracle(admin);
         oracle.registerFeed(address(weth), address(ethFeed), 3_600);
 
-        pUSD  = new ProtocolStablecoin(admin);
-        vault = new StablecoinVault(admin, address(pUSD), address(oracle), treasury);
+        pUSD = new ProtocolStablecoin(admin);
+        vault = new StablecoinVault(
+            admin,
+            address(pUSD),
+            address(oracle),
+            treasury
+        );
 
         // Grant vault MINTER_ROLE
         pUSD.grantRole(pUSD.MINTER_ROLE(), address(vault));
 
         ethCfg = StablecoinVault.CollateralConfig({
-            collateralizationRatio: 15_000,   // 150%
-            liquidationRatio:       13_000,   // 130%
-            liquidationBonus:       1_000,    // 10%
-            debtCeiling:            1_000_000e18,
-            stabilityFeeBps:        200,      // 2% annual
-            totalDebt:              0,
-            isActive:               true
+            collateralizationRatio: 15_000, // 150%
+            liquidationRatio: 13_000, // 130%
+            liquidationBonus: 1_000, // 10%
+            debtCeiling: 1_000_000e18,
+            stabilityFeeBps: 200, // 2% annual
+            totalDebt: 0,
+            isActive: true
         });
 
         vault.setCollateralConfig(address(weth), ethCfg);
         vm.stopPrank();
 
         weth.mint(alice, 100e18);
-        weth.mint(bob,   100e18);
+        weth.mint(bob, 100e18);
     }
 
-    function _depositAndMint(address user, uint256 collAmt, uint256 mintAmt) internal {
+    function _depositAndMint(
+        address user,
+        uint256 collAmt,
+        uint256 mintAmt
+    ) internal {
         vm.startPrank(user);
         weth.approve(address(vault), collAmt);
         vault.depositAndMint(address(weth), collAmt, mintAmt);
@@ -73,10 +81,10 @@ contract StablecoinVaultTest is Test {
     // =========================================================================
 
     function test_deployment_configStored() public view {
-        (uint256 collRatio, uint256 liqRatio,,,,, bool isActive) =
-            vault.collateralConfigs(address(weth));
+        (uint256 collRatio, uint256 liqRatio, , , , , bool isActive) = vault
+            .collateralConfigs(address(weth));
         assertEq(collRatio, 15_000);
-        assertEq(liqRatio,  13_000);
+        assertEq(liqRatio, 13_000);
         assertTrue(isActive);
     }
 
@@ -225,7 +233,11 @@ contract StablecoinVaultTest is Test {
         vm.prank(bob);
         vault.liquidate(alice, address(weth), 500e18);
 
-        assertGt(weth.balanceOf(bob), bobWethBefore, "liquidator received collateral");
+        assertGt(
+            weth.balanceOf(bob),
+            bobWethBefore,
+            "liquidator received collateral"
+        );
     }
 
     function test_liquidation_safeVaultReverts() public {
@@ -254,9 +266,15 @@ contract StablecoinVaultTest is Test {
         vm.prank(alice);
         vault.burnPUSD(address(weth), 1e18);
 
-        assertGt(pUSD.balanceOf(treasury), treasuryBefore,
-            "treasury should receive stability fee");
-        console2.log("Stability fee:", pUSD.balanceOf(treasury) - treasuryBefore);
+        assertGt(
+            pUSD.balanceOf(treasury),
+            treasuryBefore,
+            "treasury should receive stability fee"
+        );
+        console2.log(
+            "Stability fee:",
+            pUSD.balanceOf(treasury) - treasuryBefore
+        );
     }
 
     function test_stabilityFee_increasesDebt() public {
@@ -285,12 +303,12 @@ contract StablecoinVaultTest is Test {
         uint256 collAmt,
         uint256 mintPct
     ) public {
-        collAmt = bound(collAmt, 1e18,  50e18);
-        mintPct = bound(mintPct, 1,     6_000); // max 60% of max-mintable
+        collAmt = bound(collAmt, 1e18, 50e18);
+        mintPct = bound(mintPct, 1, 6_000); // max 60% of max-mintable
 
-        uint256 collUsd     = (collAmt * 2_000e18) / 1e18;
-        uint256 maxMintable = (collUsd * 10_000)   / 15_000;
-        uint256 mintAmt     = maxMintable * mintPct / 10_000;
+        uint256 collUsd = (collAmt * 2_000e18) / 1e18;
+        uint256 maxMintable = (collUsd * 10_000) / 15_000;
+        uint256 mintAmt = (maxMintable * mintPct) / 10_000;
         if (mintAmt == 0) return;
 
         weth.mint(alice, collAmt);

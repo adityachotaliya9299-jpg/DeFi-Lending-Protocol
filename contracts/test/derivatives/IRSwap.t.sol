@@ -7,27 +7,26 @@ import {MockERC20} from "../../src/mocks/MockERC20.sol";
 
 /**
  * @title IRSwapTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 20 tests for interest rate swap (variable <-> fixed)
  */
 contract IRSwapTest is Test {
-
-    IRSwap    internal swap;
+    IRSwap internal swap;
     MockERC20 internal token;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
+    address internal bob = makeAddr("bob");
     address internal asset = makeAddr("asset");
 
-    uint256 constant NOTIONAL      = 100_000e6;  // $100K
-    uint256 constant FIXED_RATE    = 500;         // 5% APR in BPS
-    uint256 constant VARIABLE_RATE = 800;         // 8% APR in BPS
-    uint256 constant DURATION      = 30 days;
+    uint256 constant NOTIONAL = 100_000e6; // $100K
+    uint256 constant FIXED_RATE = 500; // 5% APR in BPS
+    uint256 constant VARIABLE_RATE = 800; // 8% APR in BPS
+    uint256 constant DURATION = 30 days;
 
     function setUp() public {
         token = new MockERC20("Settlement", "USDC", 6);
-        swap  = new IRSwap(admin, address(token));
+        swap = new IRSwap(admin, address(token));
 
         vm.prank(admin);
         swap.setVariableRate(asset, VARIABLE_RATE);
@@ -152,7 +151,11 @@ contract IRSwapTest is Test {
         // Should get back less than full collateral
         uint256 fullCollateral = (NOTIONAL * 500) / 10_000;
         uint256 returned = balAfter - balBefore;
-        assertLt(returned, fullCollateral, "user pays net when fixed > variable");
+        assertLt(
+            returned,
+            fullCollateral,
+            "user pays net when fixed > variable"
+        );
     }
 
     function test_settleSwap_beforeMaturityReverts() public {
@@ -166,12 +169,19 @@ contract IRSwapTest is Test {
         vm.warp(block.timestamp + DURATION);
         swap.settleSwap(id);
 
-        vm.expectRevert(abi.encodeWithSelector(IRSwap.IRSwap__SwapAlreadySettled.selector, id));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IRSwap.IRSwap__SwapAlreadySettled.selector,
+                id
+            )
+        );
         swap.settleSwap(id);
     }
 
     function test_settleSwap_nonExistentReverts() public {
-        vm.expectRevert(abi.encodeWithSelector(IRSwap.IRSwap__SwapNotFound.selector, 999));
+        vm.expectRevert(
+            abi.encodeWithSelector(IRSwap.IRSwap__SwapNotFound.selector, 999)
+        );
         swap.settleSwap(999);
     }
 
@@ -189,11 +199,14 @@ contract IRSwapTest is Test {
     function test_previewSettlement_correctMath() public {
         uint256 id = _open();
 
-        (uint256 fixed_, uint256 variable_, int256 net) = swap.previewSettlement(id);
+        (uint256 fixed_, uint256 variable_, int256 net) = swap
+            .previewSettlement(id);
 
         // fixed = 100_000e6 * 500 * 30 days / (10_000 * 365 days)
-        uint256 expectedFixed    = (NOTIONAL * FIXED_RATE * DURATION) / (10_000 * 365 days);
-        uint256 expectedVariable = (NOTIONAL * VARIABLE_RATE * DURATION) / (10_000 * 365 days);
+        uint256 expectedFixed = (NOTIONAL * FIXED_RATE * DURATION) /
+            (10_000 * 365 days);
+        uint256 expectedVariable = (NOTIONAL * VARIABLE_RATE * DURATION) /
+            (10_000 * 365 days);
 
         assertApproxEqAbs(fixed_, expectedFixed, 1e3);
         assertApproxEqAbs(variable_, expectedVariable, 1e3);
@@ -215,7 +228,9 @@ contract IRSwapTest is Test {
     //  Fuzz
     // =========================================================================
 
-    function testFuzz_openSwap_collateralProportionalToNotional(uint256 notional) public {
+    function testFuzz_openSwap_collateralProportionalToNotional(
+        uint256 notional
+    ) public {
         notional = bound(notional, 1e6, 1_000_000e6);
         token.mint(alice, notional);
 

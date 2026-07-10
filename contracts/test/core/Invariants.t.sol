@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2}    from "forge-std/Test.sol";
-import {LendingPool}        from "../../src/core/LendingPool.sol";
-import {CollateralManager}  from "../../src/core/CollateralManager.sol";
-import {PriceOracle}        from "../../src/oracle/PriceOracle.sol";
-import {InterestRateModel}  from "../../src/interest/InterestRateModel.sol";
-import {ProtocolTreasury}   from "../../src/treasury/ProtocolTreasury.sol";
-import {ILendingPool}       from "../../src/interfaces/ILendingPool.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {LendingPool} from "../../src/core/LendingPool.sol";
+import {CollateralManager} from "../../src/core/CollateralManager.sol";
+import {PriceOracle} from "../../src/oracle/PriceOracle.sol";
+import {InterestRateModel} from "../../src/interest/InterestRateModel.sol";
+import {ProtocolTreasury} from "../../src/treasury/ProtocolTreasury.sol";
+import {ILendingPool} from "../../src/interfaces/ILendingPool.sol";
 import {ICollateralManager} from "../../src/interfaces/ICollateralManager.sol";
-import {MockChainlinkFeed}  from "../../src/mocks/MockChainlinkFeed.sol";
-import {MockERC20}          from "../../src/mocks/MockERC20.sol";
-import {WadRayMath}         from "../../src/math/WadRayMath.sol";
+import {MockChainlinkFeed} from "../../src/mocks/MockChainlinkFeed.sol";
+import {MockERC20} from "../../src/mocks/MockERC20.sol";
+import {WadRayMath} from "../../src/math/WadRayMath.sol";
 
 /**
  * @title  InvariantsTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Property-based invariant tests that must hold under ALL conditions:
  *
  *   1. totalScaledDeposits * liquidityIndex >= sum of individual deposits
@@ -32,19 +32,19 @@ import {WadRayMath}         from "../../src/math/WadRayMath.sol";
 contract InvariantsTest is Test {
     using WadRayMath for uint256;
 
-    LendingPool       internal pool;
+    LendingPool internal pool;
     CollateralManager internal cm;
-    PriceOracle       internal oracle;
+    PriceOracle internal oracle;
     InterestRateModel internal irm;
-    ProtocolTreasury  internal treasury;
-    MockERC20         internal weth;
-    MockERC20         internal usdc;
+    ProtocolTreasury internal treasury;
+    MockERC20 internal weth;
+    MockERC20 internal usdc;
     MockChainlinkFeed internal ethFeed;
     MockChainlinkFeed internal usdcFeed;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
+    address internal bob = makeAddr("bob");
     address internal carol = makeAddr("carol");
 
     uint256 constant RAY = 1e27;
@@ -52,41 +52,77 @@ contract InvariantsTest is Test {
     function setUp() public {
         vm.startPrank(admin);
         treasury = new ProtocolTreasury(admin);
-        cm       = new CollateralManager(admin);
-        oracle   = new PriceOracle(admin);
-        irm      = new InterestRateModel(admin, 100, 400, 7_500, 8_000);
-        pool     = new LendingPool(admin, address(cm), address(oracle), address(irm), address(treasury));
+        cm = new CollateralManager(admin);
+        oracle = new PriceOracle(admin);
+        irm = new InterestRateModel(admin, 100, 400, 7_500, 8_000);
+        pool = new LendingPool(
+            admin,
+            address(cm),
+            address(oracle),
+            address(irm),
+            address(treasury)
+        );
 
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
-        usdc = new MockERC20("USD Coin",      "USDC", 6);
+        usdc = new MockERC20("USD Coin", "USDC", 6);
 
-        ethFeed  = new MockChainlinkFeed(); ethFeed.setPrice(2_000e8);
-        usdcFeed = new MockChainlinkFeed(); usdcFeed.setPrice(1e8);
+        ethFeed = new MockChainlinkFeed();
+        ethFeed.setPrice(2_000e8);
+        usdcFeed = new MockChainlinkFeed();
+        usdcFeed.setPrice(1e8);
 
-        oracle.registerFeed(address(weth), address(ethFeed),  3_600);
+        oracle.registerFeed(address(weth), address(ethFeed), 3_600);
         oracle.registerFeed(address(usdc), address(usdcFeed), 86_400);
 
-        cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({
-            ltv: 8_000, liquidationThreshold: 8_500, liquidationBonus: 800,
-            reserveFactor: 1_000,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
-        }));
-        cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({
-            ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,
-            reserveFactor: 500,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
-        }));
+        cm.setAssetConfig(
+            address(weth),
+            ICollateralManager.AssetConfig({
+                ltv: 8_000,
+                liquidationThreshold: 8_500,
+                liquidationBonus: 800,
+                reserveFactor: 1_000,
+                supplyCap: 1_000_000e18,
+                borrowCap: 500_000e18,
+                isActive: true,
+                isBorrowEnabled: true
+            })
+        );
+        cm.setAssetConfig(
+            address(usdc),
+            ICollateralManager.AssetConfig({
+                ltv: 8_500,
+                liquidationThreshold: 9_000,
+                liquidationBonus: 500,
+                reserveFactor: 500,
+                supplyCap: 1_000_000e18,
+                borrowCap: 500_000e18,
+                isActive: true,
+                isBorrowEnabled: true
+            })
+        );
 
         pool.initAsset(address(weth));
         pool.initAsset(address(usdc));
         vm.stopPrank();
 
-        weth.mint(alice, 10_000e18); weth.mint(bob, 10_000e18); weth.mint(carol, 10_000e18);
-        usdc.mint(alice, 10_000_000e6); usdc.mint(bob, 10_000_000e6); usdc.mint(carol, 10_000_000e6);
+        weth.mint(alice, 10_000e18);
+        weth.mint(bob, 10_000e18);
+        weth.mint(carol, 10_000e18);
+        usdc.mint(alice, 10_000_000e6);
+        usdc.mint(bob, 10_000_000e6);
+        usdc.mint(carol, 10_000_000e6);
     }
 
     function _dep(address u, address t, uint256 a) internal {
-        vm.startPrank(u); MockERC20(t).approve(address(pool), a); pool.deposit(t, a); vm.stopPrank();
+        vm.startPrank(u);
+        MockERC20(t).approve(address(pool), a);
+        pool.deposit(t, a);
+        vm.stopPrank();
     }
-    function _bor(address u, address t, uint256 a) internal { vm.prank(u); pool.borrow(t, a, 1); }
+    function _bor(address u, address t, uint256 a) internal {
+        vm.prank(u);
+        pool.borrow(t, a, 1);
+    }
 
     /// @dev Refresh both oracle feeds to current block.timestamp after vm.warp.
     function _refreshFeeds() internal {
@@ -100,12 +136,12 @@ contract InvariantsTest is Test {
 
     function test_invariant_totalScaledDeposits_matchesPoolBalance() public {
         _dep(alice, address(usdc), 50_000e6);
-        _dep(bob,   address(usdc), 30_000e6);
+        _dep(bob, address(usdc), 30_000e6);
 
         ILendingPool.ReserveData memory r = pool.getReserveData(address(usdc));
-        uint256 total   = uint256(r.totalScaledDeposits).rayMul(r.liquidityIndex);
+        uint256 total = uint256(r.totalScaledDeposits).rayMul(r.liquidityIndex);
         uint256 aliceDep = pool.getUserDeposit(alice, address(usdc));
-        uint256 bobDep   = pool.getUserDeposit(bob,   address(usdc));
+        uint256 bobDep = pool.getUserDeposit(bob, address(usdc));
 
         assertApproxEqAbs(total, aliceDep + bobDep, 10);
     }
@@ -113,14 +149,14 @@ contract InvariantsTest is Test {
     function test_invariant_totalScaledBorrows_matchesSumOfDebts() public {
         _dep(carol, address(usdc), 200_000e6);
         _dep(alice, address(weth), 20e18);
-        _dep(bob,   address(weth), 20e18);
+        _dep(bob, address(weth), 20e18);
         _bor(alice, address(usdc), 10_000e6);
-        _bor(bob,   address(usdc), 8_000e6);
+        _bor(bob, address(usdc), 8_000e6);
 
         ILendingPool.ReserveData memory r = pool.getReserveData(address(usdc));
-        uint256 total     = uint256(r.totalScaledBorrows).rayMul(r.borrowIndex);
+        uint256 total = uint256(r.totalScaledBorrows).rayMul(r.borrowIndex);
         uint256 aliceDebt = pool.getUserDebt(alice, address(usdc));
-        uint256 bobDebt   = pool.getUserDebt(bob,   address(usdc));
+        uint256 bobDebt = pool.getUserDebt(bob, address(usdc));
 
         assertApproxEqAbs(total, aliceDebt + bobDebt, 10);
     }
@@ -158,7 +194,7 @@ contract InvariantsTest is Test {
     function test_invariant_indexStartsAtRay() public view {
         ILendingPool.ReserveData memory r = pool.getReserveData(address(weth));
         assertEq(r.liquidityIndex, RAY);
-        assertEq(r.borrowIndex,    RAY);
+        assertEq(r.borrowIndex, RAY);
     }
 
     // =========================================================================
@@ -172,7 +208,9 @@ contract InvariantsTest is Test {
         _bor(alice, address(usdc), 10_000e6);
 
         ILendingPool.ReserveData memory r = pool.getReserveData(address(usdc));
-        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(r.liquidityIndex);
+        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(
+            r.liquidityIndex
+        );
         uint256 totalBor = uint256(r.totalScaledBorrows).rayMul(r.borrowIndex);
         uint256 expectedAvail = totalDep - totalBor;
 
@@ -189,7 +227,8 @@ contract InvariantsTest is Test {
         _dep(alice, address(weth), depositAmt);
 
         uint256 balBefore = weth.balanceOf(alice);
-        vm.prank(alice); pool.withdraw(address(weth), depositAmt);
+        vm.prank(alice);
+        pool.withdraw(address(weth), depositAmt);
         uint256 withdrawn = weth.balanceOf(alice) - balBefore;
 
         assertApproxEqAbs(withdrawn, depositAmt, 1e9);
@@ -204,8 +243,11 @@ contract InvariantsTest is Test {
         _dep(alice, address(weth), 10e18);
 
         uint256[] memory borrowAmts = new uint256[](5);
-        borrowAmts[0] = 1_000e6; borrowAmts[1] = 2_000e6; borrowAmts[2] = 500e6;
-        borrowAmts[3] = 3_000e6; borrowAmts[4] = 2_000e6;
+        borrowAmts[0] = 1_000e6;
+        borrowAmts[1] = 2_000e6;
+        borrowAmts[2] = 500e6;
+        borrowAmts[3] = 3_000e6;
+        borrowAmts[4] = 2_000e6;
 
         for (uint i; i < 5; i++) {
             uint256 hfBefore = pool.getUserHealthFactor(alice);
@@ -214,12 +256,13 @@ contract InvariantsTest is Test {
             try this._borrowExternal(alice, address(usdc), borrowAmts[i]) {
                 uint256 hfAfter = pool.getUserHealthFactor(alice);
                 assertGe(hfAfter, 1e18);
-            } catch { }
+            } catch {}
         }
     }
 
     function _borrowExternal(address u, address t, uint256 a) external {
-        vm.prank(u); pool.borrow(t, a, 1);
+        vm.prank(u);
+        pool.borrow(t, a, 1);
     }
 
     // =========================================================================
@@ -227,11 +270,15 @@ contract InvariantsTest is Test {
     // =========================================================================
 
     function test_invariant_borrowRate_alwaysAboveBaseRate() public view {
-        uint256 base     = irm.baseRateRay();
+        uint256 base = irm.baseRateRay();
         uint256 totalLiq = 1_000_000e18;
         uint256[] memory utils = new uint256[](6);
-        utils[0]=0; utils[1]=totalLiq/4; utils[2]=totalLiq/2;
-        utils[3]=totalLiq*3/4; utils[4]=totalLiq*9/10; utils[5]=totalLiq*99/100;
+        utils[0] = 0;
+        utils[1] = totalLiq / 4;
+        utils[2] = totalLiq / 2;
+        utils[3] = (totalLiq * 3) / 4;
+        utils[4] = (totalLiq * 9) / 10;
+        utils[5] = (totalLiq * 99) / 100;
 
         for (uint i; i < 6; i++) {
             uint256 rate = irm.calculateBorrowRate(totalLiq, utils[i]);
@@ -242,20 +289,32 @@ contract InvariantsTest is Test {
     function test_invariant_supplyRate_alwaysLeBorrowRate() public view {
         uint256 totalLiq = 1_000_000e18;
         uint256[] memory bors = new uint256[](5);
-        bors[0]=0; bors[1]=totalLiq/5; bors[2]=totalLiq/2; bors[3]=totalLiq*4/5; bors[4]=totalLiq*95/100;
+        bors[0] = 0;
+        bors[1] = totalLiq / 5;
+        bors[2] = totalLiq / 2;
+        bors[3] = (totalLiq * 4) / 5;
+        bors[4] = (totalLiq * 95) / 100;
 
         for (uint i; i < 5; i++) {
             uint256 borrowRate = irm.calculateBorrowRate(totalLiq, bors[i]);
-            uint256 supplyRate = irm.calculateSupplyRate(totalLiq, bors[i], 1_000);
+            uint256 supplyRate = irm.calculateSupplyRate(
+                totalLiq,
+                bors[i],
+                1_000
+            );
             assertLe(supplyRate, borrowRate);
         }
     }
 
     function test_invariant_rateModel_monotonicInUtilization() public view {
-        uint256 liq  = 1_000_000e18;
+        uint256 liq = 1_000_000e18;
         uint256 prev = irm.calculateBorrowRate(liq, 0);
 
-        for (uint256 util = liq / 20; util <= liq * 99 / 100; util += liq / 20) {
+        for (
+            uint256 util = liq / 20;
+            util <= (liq * 99) / 100;
+            util += liq / 20
+        ) {
             uint256 curr = irm.calculateBorrowRate(liq, util);
             assertGe(curr, prev);
             prev = curr;
@@ -272,8 +331,12 @@ contract InvariantsTest is Test {
         assertEq(result, x);
     }
 
-    function testFuzz_invariant_wadRayMath_multiplication_commutativity(uint256 a, uint256 b) public pure {
-        a = bound(a, 0, 1e30); b = bound(b, 0, 1e30);
+    function testFuzz_invariant_wadRayMath_multiplication_commutativity(
+        uint256 a,
+        uint256 b
+    ) public pure {
+        a = bound(a, 0, 1e30);
+        b = bound(b, 0, 1e30);
         assertEq(a.wadMul(b), b.wadMul(a));
     }
 
@@ -282,10 +345,13 @@ contract InvariantsTest is Test {
         assertEq(x.rayMul(RAY), x);
     }
 
-    function testFuzz_invariant_scaledBalance_roundtrip(uint256 amount, uint256 indexRay) public pure {
-        amount   = bound(amount,   1e6,  1e30);
-        indexRay = bound(indexRay, RAY,  2 * RAY);
-        uint256 scaled    = amount.rayDiv(indexRay);
+    function testFuzz_invariant_scaledBalance_roundtrip(
+        uint256 amount,
+        uint256 indexRay
+    ) public pure {
+        amount = bound(amount, 1e6, 1e30);
+        indexRay = bound(indexRay, RAY, 2 * RAY);
+        uint256 scaled = amount.rayDiv(indexRay);
         uint256 recovered = scaled.rayMul(indexRay);
         assertApproxEqAbs(recovered, amount, 1);
     }
@@ -302,7 +368,7 @@ contract InvariantsTest is Test {
         // Keep deposit to a range where WETH collateral calculation is sensible
         depositAmt = bound(depositAmt, 1_000e6, 50_000e6);
         // Keep borrow to max 50% of LTV to stay very safe
-        borrowPct  = bound(borrowPct, 0, 4_000);
+        borrowPct = bound(borrowPct, 0, 4_000);
 
         _dep(carol, address(usdc), depositAmt);
 
@@ -312,13 +378,15 @@ contract InvariantsTest is Test {
         _dep(alice, address(weth), wethCollateral);
 
         // borrowAmt = depositAmt * borrowPct / 10_000 (in USDC units)
-        uint256 borrowAmt = depositAmt * borrowPct / 10_000;
+        uint256 borrowAmt = (depositAmt * borrowPct) / 10_000;
         if (borrowAmt > 0 && borrowAmt < depositAmt) {
             _bor(alice, address(usdc), borrowAmt);
         }
 
         ILendingPool.ReserveData memory r = pool.getReserveData(address(usdc));
-        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(r.liquidityIndex);
+        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(
+            r.liquidityIndex
+        );
         uint256 totalBor = uint256(r.totalScaledBorrows).rayMul(r.borrowIndex);
 
         assertLe(totalBor, totalDep + 1, "borrows must never exceed deposits");

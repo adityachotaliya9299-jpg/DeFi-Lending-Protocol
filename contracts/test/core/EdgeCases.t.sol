@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2}       from "forge-std/Test.sol";
-import {LendingPool}           from "../../src/core/LendingPool.sol";
-import {CollateralManager}     from "../../src/core/CollateralManager.sol";
-import {PriceOracle}           from "../../src/oracle/PriceOracle.sol";
-import {InterestRateModel}     from "../../src/interest/InterestRateModel.sol";
-import {ProtocolTreasury}      from "../../src/treasury/ProtocolTreasury.sol";
-import {ILendingPool}          from "../../src/interfaces/ILendingPool.sol";
-import {ICollateralManager}    from "../../src/interfaces/ICollateralManager.sol";
-import {IPriceOracle}          from "../../src/interfaces/IPriceOracle.sol";
-import {MockChainlinkFeed}     from "../../src/mocks/MockChainlinkFeed.sol";
-import {MockERC20}             from "../../src/mocks/MockERC20.sol";
-import {WadRayMath}            from "../../src/math/WadRayMath.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {LendingPool} from "../../src/core/LendingPool.sol";
+import {CollateralManager} from "../../src/core/CollateralManager.sol";
+import {PriceOracle} from "../../src/oracle/PriceOracle.sol";
+import {InterestRateModel} from "../../src/interest/InterestRateModel.sol";
+import {ProtocolTreasury} from "../../src/treasury/ProtocolTreasury.sol";
+import {ILendingPool} from "../../src/interfaces/ILendingPool.sol";
+import {ICollateralManager} from "../../src/interfaces/ICollateralManager.sol";
+import {IPriceOracle} from "../../src/interfaces/IPriceOracle.sol";
+import {MockChainlinkFeed} from "../../src/mocks/MockChainlinkFeed.sol";
+import {MockERC20} from "../../src/mocks/MockERC20.sol";
+import {WadRayMath} from "../../src/math/WadRayMath.sol";
 
 /**
  * @title  EdgeCasesTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Edge-case and adversarial scenario tests:
  *         - Oracle returning 0 / negative price
  *         - Extreme utilization (99.99%)
@@ -30,53 +30,81 @@ import {WadRayMath}            from "../../src/math/WadRayMath.sol";
 contract EdgeCasesTest is Test {
     using WadRayMath for uint256;
 
-    LendingPool        internal pool;
-    CollateralManager  internal cm;
-    PriceOracle        internal oracle;
-    InterestRateModel  internal irm;
-    ProtocolTreasury   internal treasury;
+    LendingPool internal pool;
+    CollateralManager internal cm;
+    PriceOracle internal oracle;
+    InterestRateModel internal irm;
+    ProtocolTreasury internal treasury;
 
-    MockERC20          internal weth;
-    MockERC20          internal usdc;
-    MockChainlinkFeed  internal ethFeed;
-    MockChainlinkFeed  internal usdcFeed;
+    MockERC20 internal weth;
+    MockERC20 internal usdc;
+    MockChainlinkFeed internal ethFeed;
+    MockChainlinkFeed internal usdcFeed;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
+    address internal bob = makeAddr("bob");
 
     function setUp() public {
         vm.startPrank(admin);
         treasury = new ProtocolTreasury(admin);
-        cm       = new CollateralManager(admin);
-        oracle   = new PriceOracle(admin);
-        irm      = new InterestRateModel(admin, 100, 400, 7_500, 8_000);
-        pool     = new LendingPool(admin, address(cm), address(oracle), address(irm), address(treasury));
+        cm = new CollateralManager(admin);
+        oracle = new PriceOracle(admin);
+        irm = new InterestRateModel(admin, 100, 400, 7_500, 8_000);
+        pool = new LendingPool(
+            admin,
+            address(cm),
+            address(oracle),
+            address(irm),
+            address(treasury)
+        );
 
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
-        usdc = new MockERC20("USD Coin",      "USDC", 6);
+        usdc = new MockERC20("USD Coin", "USDC", 6);
 
-        ethFeed  = new MockChainlinkFeed(); ethFeed.setPrice(2_000e8);
-        usdcFeed = new MockChainlinkFeed(); usdcFeed.setPrice(1e8);
+        ethFeed = new MockChainlinkFeed();
+        ethFeed.setPrice(2_000e8);
+        usdcFeed = new MockChainlinkFeed();
+        usdcFeed.setPrice(1e8);
 
-        oracle.registerFeed(address(weth), address(ethFeed),  3_600);
+        oracle.registerFeed(address(weth), address(ethFeed), 3_600);
         oracle.registerFeed(address(usdc), address(usdcFeed), 86_400);
 
-        cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({
-            ltv: 8_000, liquidationThreshold: 8_500, liquidationBonus: 800, 
-            reserveFactor: 1_000,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
-        }));
-        cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({
-            ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,
-            reserveFactor: 500,supplyCap: 1_000_000e18, borrowCap: 500_000e18, isActive: true, isBorrowEnabled: true
-        }));
+        cm.setAssetConfig(
+            address(weth),
+            ICollateralManager.AssetConfig({
+                ltv: 8_000,
+                liquidationThreshold: 8_500,
+                liquidationBonus: 800,
+                reserveFactor: 1_000,
+                supplyCap: 1_000_000e18,
+                borrowCap: 500_000e18,
+                isActive: true,
+                isBorrowEnabled: true
+            })
+        );
+        cm.setAssetConfig(
+            address(usdc),
+            ICollateralManager.AssetConfig({
+                ltv: 8_500,
+                liquidationThreshold: 9_000,
+                liquidationBonus: 500,
+                reserveFactor: 500,
+                supplyCap: 1_000_000e18,
+                borrowCap: 500_000e18,
+                isActive: true,
+                isBorrowEnabled: true
+            })
+        );
 
         pool.initAsset(address(weth));
         pool.initAsset(address(usdc));
         vm.stopPrank();
 
-        weth.mint(alice, 1_000e18); weth.mint(bob, 1_000e18);
-        usdc.mint(alice, 1_000_000e6); usdc.mint(bob, 1_000_000e6);
+        weth.mint(alice, 1_000e18);
+        weth.mint(bob, 1_000e18);
+        usdc.mint(alice, 1_000_000e6);
+        usdc.mint(bob, 1_000_000e6);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -89,7 +117,8 @@ contract EdgeCasesTest is Test {
     }
 
     function _borrow(address user, address token, uint256 amt) internal {
-        vm.prank(user); pool.borrow(token, amt, 1);
+        vm.prank(user);
+        pool.borrow(token, amt, 1);
     }
 
     /// @dev After vm.warp, oracle staleness guards will trigger unless feeds
@@ -112,7 +141,11 @@ contract EdgeCasesTest is Test {
     function test_oracle_negativePriceReverts() public {
         ethFeed.makeNegative();
         vm.expectRevert(
-            abi.encodeWithSelector(IPriceOracle.PriceOracle__InvalidPrice.selector, address(weth), int256(-1))
+            abi.encodeWithSelector(
+                IPriceOracle.PriceOracle__InvalidPrice.selector,
+                address(weth),
+                int256(-1)
+            )
         );
         oracle.getPrice(address(weth));
     }
@@ -147,14 +180,17 @@ contract EdgeCasesTest is Test {
 
     function test_oracle_rapidPriceCrash_cascadingLiquidation() public {
         address carol = makeAddr("carol");
-        weth.mint(carol, 100e18); usdc.mint(carol, 100_000e6);
+        weth.mint(carol, 100e18);
+        usdc.mint(carol, 100_000e6);
 
-        _deposit(bob,   address(usdc), 500_000e6);
+        _deposit(bob, address(usdc), 500_000e6);
         _deposit(alice, address(weth), 10e18);
         _deposit(carol, address(weth), 5e18);
 
-        vm.prank(alice); pool.borrow(address(usdc), 13_000e6, 1);
-        vm.prank(carol); pool.borrow(address(usdc), 6_500e6, 1);
+        vm.prank(alice);
+        pool.borrow(address(usdc), 13_000e6, 1);
+        vm.prank(carol);
+        pool.borrow(address(usdc), 6_500e6, 1);
 
         ethFeed.setPrice(1_200e8);
 
@@ -176,9 +212,11 @@ contract EdgeCasesTest is Test {
         _borrow(alice, address(usdc), 99_000e6);
 
         ILendingPool.ReserveData memory r = pool.getReserveData(address(usdc));
-        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(r.liquidityIndex);
+        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(
+            r.liquidityIndex
+        );
         uint256 totalBor = uint256(r.totalScaledBorrows).rayMul(r.borrowIndex);
-        uint256 util     = totalDep > 0 ? (totalBor * 1e18) / totalDep : 0;
+        uint256 util = totalDep > 0 ? (totalBor * 1e18) / totalDep : 0;
 
         assertGt(util, 0.98e18);
 
@@ -198,14 +236,18 @@ contract EdgeCasesTest is Test {
 
         _deposit(bob, address(weth), 10e18);
         vm.prank(bob);
-        vm.expectRevert(ILendingPool.LendingPool__InsufficientLiquidity.selector);
+        vm.expectRevert(
+            ILendingPool.LendingPool__InsufficientLiquidity.selector
+        );
         pool.borrow(address(usdc), 1e6, 1);
     }
 
     function test_utilization_0pct_lowestRate() public {
         _deposit(alice, address(usdc), 100_000e6);
         ILendingPool.ReserveData memory r = pool.getReserveData(address(usdc));
-        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(r.liquidityIndex);
+        uint256 totalDep = uint256(r.totalScaledDeposits).rayMul(
+            r.liquidityIndex
+        );
         uint256 rate = irm.calculateBorrowRate(totalDep, 0);
         assertEq(rate, irm.baseRateRay() / 365 days);
     }
@@ -217,14 +259,16 @@ contract EdgeCasesTest is Test {
     function test_borrow_exactlyAtLtvBoundary() public {
         _deposit(bob, address(usdc), 100_000e6);
         _deposit(alice, address(weth), 1e18);
-        vm.prank(alice); pool.borrow(address(usdc), 1_600e6, 1);
+        vm.prank(alice);
+        pool.borrow(address(usdc), 1_600e6, 1);
         assertGt(pool.getUserHealthFactor(alice), 1e18);
     }
 
     function test_borrow_oneDollarBeyondLtv_stillHealthy() public {
         _deposit(bob, address(usdc), 100_000e6);
         _deposit(alice, address(weth), 1e18);
-        vm.prank(alice); pool.borrow(address(usdc), 1_650e6, 1);
+        vm.prank(alice);
+        pool.borrow(address(usdc), 1_650e6, 1);
         assertGt(pool.getUserHealthFactor(alice), 1e18);
     }
 
@@ -269,11 +313,12 @@ contract EdgeCasesTest is Test {
     // =========================================================================
 
     function test_depositThenImmediateWithdraw_noLoss() public {
-        uint256 amount    = 10e18;
+        uint256 amount = 10e18;
         uint256 balBefore = weth.balanceOf(alice);
 
         _deposit(alice, address(weth), amount);
-        vm.prank(alice); pool.withdraw(address(weth), amount);
+        vm.prank(alice);
+        pool.withdraw(address(weth), amount);
 
         assertApproxEqAbs(weth.balanceOf(alice), balBefore, 1e9);
     }
@@ -303,7 +348,7 @@ contract EdgeCasesTest is Test {
 
     function test_multiAssetCollateral_combinedHealthFactor() public {
         _deposit(bob, address(usdc), 100_000e6);
-        _deposit(alice, address(weth), 2e18);    // $4,000
+        _deposit(alice, address(weth), 2e18); // $4,000
         _deposit(alice, address(usdc), 5_000e6); // $5,000
 
         _borrow(alice, address(usdc), 7_000e6);
@@ -344,17 +389,21 @@ contract EdgeCasesTest is Test {
     function test_interest_noAccrualWhenNoBorrows() public {
         _deposit(alice, address(weth), 10e18);
 
-        ILendingPool.ReserveData memory before = pool.getReserveData(address(weth));
+        ILendingPool.ReserveData memory before = pool.getReserveData(
+            address(weth)
+        );
         vm.warp(block.timestamp + 365 days);
         _refreshFeeds();
 
         _deposit(bob, address(usdc), 1);
 
-        ILendingPool.ReserveData memory after_ = pool.getReserveData(address(weth));
+        ILendingPool.ReserveData memory after_ = pool.getReserveData(
+            address(weth)
+        );
         assertEq(after_.liquidityIndex, before.liquidityIndex);
     }
 
-   function test_interest_accruesOverLongPeriod() public {
+    function test_interest_accruesOverLongPeriod() public {
         _deposit(bob, address(usdc), 100_000e6);
         _deposit(alice, address(weth), 10e18); // $20,000 collateral, 80% LTV = max $16k
         // Borrow 12,000 USDC at 12% pool utilization (12,000 / 100,000) → measurable APR
@@ -369,7 +418,11 @@ contract EdgeCasesTest is Test {
 
         uint256 debtAfter = pool.getUserDebt(alice, address(usdc));
         // High utilization (80%) → interest is significant even with linear approximation
-        assertGe(debtAfter, debtBefore, "debt should grow or stay same with interest accrual");
+        assertGe(
+            debtAfter,
+            debtBefore,
+            "debt should grow or stay same with interest accrual"
+        );
         // Verify actual growth with console logging
         console2.log("Debt before (e6):", debtBefore / 1e6);
         console2.log("Debt after (e6):", debtAfter / 1e6);
@@ -391,7 +444,9 @@ contract EdgeCasesTest is Test {
 
             _deposit(bob, address(weth), 1e15);
 
-            uint256 newLiqIdx = pool.getReserveData(address(usdc)).liquidityIndex;
+            uint256 newLiqIdx = pool
+                .getReserveData(address(usdc))
+                .liquidityIndex;
             uint256 newBorIdx = pool.getReserveData(address(usdc)).borrowIndex;
 
             assertGe(newLiqIdx, prevLiqIdx);
@@ -450,14 +505,14 @@ contract EdgeCasesTest is Test {
         uint256 borrowPct
     ) public {
         depositAmt = bound(depositAmt, 1e18, 50e18);
-        borrowPct  = bound(borrowPct, 1, 7_500);
+        borrowPct = bound(borrowPct, 1, 7_500);
 
         _deposit(bob, address(usdc), 500_000e6);
         weth.mint(alice, depositAmt);
         _deposit(alice, address(weth), depositAmt);
 
-        uint256 collUsd   = depositAmt * 2_000 / 1e12;
-        uint256 maxBorrow = collUsd * borrowPct / 10_000;
+        uint256 collUsd = (depositAmt * 2_000) / 1e12;
+        uint256 maxBorrow = (collUsd * borrowPct) / 10_000;
         if (maxBorrow == 0) return;
 
         _borrow(alice, address(usdc), maxBorrow);
