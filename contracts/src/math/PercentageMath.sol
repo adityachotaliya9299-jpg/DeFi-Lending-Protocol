@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title  PercentageMath
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Provides percentage arithmetic using a basis-point (bps) scale:
  *
  *           PERCENTAGE_FACTOR = 10_000
@@ -89,7 +89,10 @@ library PercentageMath {
      * @param  bps     Percentage in basis points (0–10_000 inclusive).
      * @return         Result = value × (bps / 100%), rounded half-up.
      */
-    function percentMul(uint256 value, uint256 bps) internal pure returns (uint256) {
+    function percentMul(
+        uint256 value,
+        uint256 bps
+    ) internal pure returns (uint256) {
         if (value == 0 || bps == 0) return 0;
 
         if (value > (type(uint256).max - HALF_PERCENTAGE_FACTOR) / bps) {
@@ -117,7 +120,10 @@ library PercentageMath {
      * @param  bps     Percentage in basis points (must be > 0).
      * @return         result = value / (bps / 100%), rounded half-up.
      */
-    function percentDiv(uint256 value, uint256 bps) internal pure returns (uint256) {
+    function percentDiv(
+        uint256 value,
+        uint256 bps
+    ) internal pure returns (uint256) {
         if (bps == 0) revert PercentageMath__DivisionByZero();
 
         uint256 halfBps = bps / 2;
@@ -184,7 +190,10 @@ library PercentageMath {
 
         // adjustedCollateral = collateralValue * liquidationThreshold (in WAD)
         // We scale by 1e18 and then divide by PERCENTAGE_FACTOR to keep WAD units.
-        uint256 adjustedCollateral = percentMul(collateralValueWad, liquidationThresholdBps);
+        uint256 adjustedCollateral = percentMul(
+            collateralValueWad,
+            liquidationThresholdBps
+        );
 
         // healthFactor = adjustedCollateral * 1e18 / borrowedValue
         // Both are in WAD, so we need the extra 1e18 scale.
