@@ -3,13 +3,17 @@ pragma solidity ^0.8.24;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title TrancheVault
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Senior/Junior tranche structure on pool yield
  *
  * Key design:
@@ -38,8 +42,16 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
     event JuniorDeposit(address indexed user, uint256 amount, uint256 shares);
     event SeniorWithdraw(address indexed user, uint256 amount, uint256 shares);
     event JuniorWithdraw(address indexed user, uint256 amount, uint256 shares);
-    event YieldDistributed(uint256 totalYield, uint256 seniorYield, uint256 juniorYield);
-    event BadDebtAbsorbed(uint256 amount, uint256 juniorLoss, uint256 seniorLoss);
+    event YieldDistributed(
+        uint256 totalYield,
+        uint256 seniorYield,
+        uint256 juniorYield
+    );
+    event BadDebtAbsorbed(
+        uint256 amount,
+        uint256 juniorLoss,
+        uint256 seniorLoss
+    );
 
     IERC20 public immutable underlying;
 
@@ -53,7 +65,7 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
 
     // Yield parameters
     uint256 public targetSeniorYieldBps; // senior gets this rate first
-    uint256 public accruedYield;          // pending yield to distribute
+    uint256 public accruedYield; // pending yield to distribute
 
     constructor(
         address admin,
@@ -67,8 +79,8 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
 
-        underlying            = IERC20(_underlying);
-        targetSeniorYieldBps  = _targetSeniorYieldBps;
+        underlying = IERC20(_underlying);
+        targetSeniorYieldBps = _targetSeniorYieldBps;
 
         seniorToken = new ERC20Token("LendFi Senior", "lfSENIOR");
         juniorToken = new ERC20Token("LendFi Junior", "lfJUNIOR");
@@ -78,7 +90,9 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
     //  Deposit
     // =========================================================================
 
-    function depositSenior(uint256 amount) external nonReentrant returns (uint256 shares) {
+    function depositSenior(
+        uint256 amount
+    ) external nonReentrant returns (uint256 shares) {
         if (amount == 0) revert TrancheVault__ZeroAmount();
 
         uint256 currentTotalTVL = seniorTVL + juniorTVL;
@@ -86,7 +100,7 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
         // Senior cap: senior can't exceed MAX_SENIOR_RATIO_BPS of total TVL
         if (currentTotalTVL > 0) {
             uint256 newSeniorTVL = seniorTVL + amount;
-            uint256 newTotal     = currentTotalTVL + amount;
+            uint256 newTotal = currentTotalTVL + amount;
             if ((newSeniorTVL * BPS_TOTAL) / newTotal > MAX_SENIOR_RATIO_BPS)
                 revert TrancheVault__ExceedsSeniorCap();
         }
@@ -105,7 +119,9 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
         emit SeniorDeposit(msg.sender, amount, shares);
     }
 
-    function depositJunior(uint256 amount) external nonReentrant returns (uint256 shares) {
+    function depositJunior(
+        uint256 amount
+    ) external nonReentrant returns (uint256 shares) {
         if (amount == 0) revert TrancheVault__ZeroAmount();
 
         underlying.safeTransferFrom(msg.sender, address(this), amount);
@@ -121,9 +137,14 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
     //  Withdraw
     // =========================================================================
 
-    function withdrawSenior(uint256 shares) external nonReentrant returns (uint256 amount) {
+    function withdrawSenior(
+        uint256 shares
+    ) external nonReentrant returns (uint256 amount) {
         if (shares == 0) revert TrancheVault__ZeroAmount();
-        require(seniorToken.balanceOf(msg.sender) >= shares, "insufficient shares");
+        require(
+            seniorToken.balanceOf(msg.sender) >= shares,
+            "insufficient shares"
+        );
 
         amount = _amountForShares(shares, seniorTVL, seniorToken.totalSupply());
         seniorTVL -= amount;
@@ -133,9 +154,14 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
         emit SeniorWithdraw(msg.sender, amount, shares);
     }
 
-    function withdrawJunior(uint256 shares) external nonReentrant returns (uint256 amount) {
+    function withdrawJunior(
+        uint256 shares
+    ) external nonReentrant returns (uint256 amount) {
         if (shares == 0) revert TrancheVault__ZeroAmount();
-        require(juniorToken.balanceOf(msg.sender) >= shares, "insufficient shares");
+        require(
+            juniorToken.balanceOf(msg.sender) >= shares,
+            "insufficient shares"
+        );
 
         amount = _amountForShares(shares, juniorTVL, juniorToken.totalSupply());
         juniorTVL -= amount;
@@ -153,7 +179,9 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
      * @notice Distribute yield: senior gets targetSeniorYieldBps first, junior gets rest
      * @param yieldAmount Total yield to distribute (transferred in before calling)
      */
-    function distributeYield(uint256 yieldAmount) external onlyRole(ADMIN_ROLE) {
+    function distributeYield(
+        uint256 yieldAmount
+    ) external onlyRole(ADMIN_ROLE) {
         if (yieldAmount == 0) revert TrancheVault__ZeroAmount();
 
         uint256 currentTotalTVL = seniorTVL + juniorTVL;
@@ -174,21 +202,23 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
      * @notice Absorb bad debt: junior absorbs first, then senior
      * @param badDebtAmount Amount of bad debt to socialise
      */
-    function absorbBadDebt(uint256 badDebtAmount) external onlyRole(ADMIN_ROLE) {
+    function absorbBadDebt(
+        uint256 badDebtAmount
+    ) external onlyRole(ADMIN_ROLE) {
         if (badDebtAmount == 0) revert TrancheVault__ZeroAmount();
 
         uint256 juniorLoss = 0;
         uint256 seniorLoss = 0;
 
         if (badDebtAmount <= juniorTVL) {
-            juniorLoss  = badDebtAmount;
-            juniorTVL  -= badDebtAmount;
+            juniorLoss = badDebtAmount;
+            juniorTVL -= badDebtAmount;
         } else {
-            juniorLoss  = juniorTVL;
+            juniorLoss = juniorTVL;
             uint256 rem = badDebtAmount - juniorTVL;
-            juniorTVL   = 0;
-            seniorLoss  = rem <= seniorTVL ? rem : seniorTVL;
-            seniorTVL  -= seniorLoss;
+            juniorTVL = 0;
+            seniorLoss = rem <= seniorTVL ? rem : seniorTVL;
+            seniorTVL -= seniorLoss;
         }
 
         emit BadDebtAbsorbed(badDebtAmount, juniorLoss, seniorLoss);
@@ -229,16 +259,20 @@ contract TrancheVault is AccessControl, ReentrancyGuard {
     //  Internal
     // =========================================================================
 
-    function _sharesForAmount(uint256 amount, uint256 tvl, uint256 supply)
-        internal pure returns (uint256)
-    {
+    function _sharesForAmount(
+        uint256 amount,
+        uint256 tvl,
+        uint256 supply
+    ) internal pure returns (uint256) {
         if (supply == 0) return amount;
         return (amount * supply) / tvl;
     }
 
-    function _amountForShares(uint256 shares, uint256 tvl, uint256 supply)
-        internal pure returns (uint256)
-    {
+    function _amountForShares(
+        uint256 shares,
+        uint256 tvl,
+        uint256 supply
+    ) internal pure returns (uint256) {
         if (supply == 0) return 0;
         return (shares * tvl) / supply;
     }
@@ -260,6 +294,10 @@ contract ERC20Token is ERC20 {
         _;
     }
 
-    function mint(address to, uint256 amount) external onlyVault { _mint(to, amount); }
-    function burn(address from, uint256 amount) external onlyVault { _burn(from, amount); }
+    function mint(address to, uint256 amount) external onlyVault {
+        _mint(to, amount);
+    }
+    function burn(address from, uint256 amount) external onlyVault {
+        _burn(from, amount);
+    }
 }
