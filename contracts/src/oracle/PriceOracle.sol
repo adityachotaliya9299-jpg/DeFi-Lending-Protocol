@@ -2,14 +2,16 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {
+    IERC20Metadata
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
 import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title  PriceOracle
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Wraps Chainlink price feeds and exposes USD prices normalised to
  *         WAD (18 decimals) for every supported asset.
  *
@@ -66,8 +68,8 @@ contract PriceOracle is IPriceOracle, Ownable {
 
     /// @dev Per-asset feed configuration.
     struct FeedConfig {
-        AggregatorV3Interface feed;   // Chainlink aggregator
-        uint256               heartbeat; // max seconds between updates
+        AggregatorV3Interface feed; // Chainlink aggregator
+        uint256 heartbeat; // max seconds between updates
     }
 
     /// @notice Maps asset address → Chainlink feed config.
@@ -98,17 +100,19 @@ contract PriceOracle is IPriceOracle, Ownable {
      * @param  heartbeat  Max acceptable age of a price in seconds.
      *                    Pass 0 to use DEFAULT_HEARTBEAT (24 h).
      */
-    function registerFeed(address asset, address feed, uint256 heartbeat)
-        external
-        onlyOwner
-    {
-        if (asset == address(0) || feed == address(0)) revert PriceOracle__ZeroAddress();
+    function registerFeed(
+        address asset,
+        address feed,
+        uint256 heartbeat
+    ) external onlyOwner {
+        if (asset == address(0) || feed == address(0))
+            revert PriceOracle__ZeroAddress();
 
         uint256 h = heartbeat == 0 ? DEFAULT_HEARTBEAT : heartbeat;
         if (h > MAX_HEARTBEAT) h = MAX_HEARTBEAT;
 
         _feeds[asset] = FeedConfig({
-            feed:      AggregatorV3Interface(feed),
+            feed: AggregatorV3Interface(feed),
             heartbeat: h
         });
 
@@ -121,7 +125,8 @@ contract PriceOracle is IPriceOracle, Ownable {
      *         Only call this after the asset has been delisted from the protocol.
      */
     function removeFeed(address asset) external onlyOwner {
-        if (address(_feeds[asset].feed) == address(0)) revert PriceOracle__FeedNotFound(asset);
+        if (address(_feeds[asset].feed) == address(0))
+            revert PriceOracle__FeedNotFound(asset);
         delete _feeds[asset];
         emit FeedRemoved(asset);
     }
@@ -139,7 +144,9 @@ contract PriceOracle is IPriceOracle, Ownable {
      *           3. Validate: answer > 0, not stale, round complete.
      *           4. Scale 8-decimal Chainlink price to 18-decimal WAD.
      */
-    function getPrice(address asset) external view override returns (uint256 priceWad) {
+    function getPrice(
+        address asset
+    ) external view override returns (uint256 priceWad) {
         return _getPrice(asset);
     }
 
@@ -153,12 +160,10 @@ contract PriceOracle is IPriceOracle, Ownable {
      *           amount = 2e8        (WBTC has 8 decimals)
      *           result = 60_000e18 * 2e8 / 1e8 = 120_000e18  ($120,000 in WAD)
      */
-    function getValueInUsd(address asset, uint256 amount)
-        external
-        view
-        override
-        returns (uint256 valueWad)
-    {
+    function getValueInUsd(
+        address asset,
+        uint256 amount
+    ) external view override returns (uint256 valueWad) {
         if (amount == 0) return 0;
 
         uint256 price = _getPrice(asset);
@@ -183,11 +188,9 @@ contract PriceOracle is IPriceOracle, Ownable {
     /**
      * @notice Returns the raw feed config for an asset (for off-chain monitoring).
      */
-    function getFeedConfig(address asset)
-        external
-        view
-        returns (address feed, uint256 heartbeat)
-    {
+    function getFeedConfig(
+        address asset
+    ) external view returns (address feed, uint256 heartbeat) {
         FeedConfig storage cfg = _feeds[asset];
         return (address(cfg.feed), cfg.heartbeat);
     }
@@ -203,15 +206,16 @@ contract PriceOracle is IPriceOracle, Ownable {
         FeedConfig storage cfg = _feeds[asset];
 
         // ── 1. Feed must be registered ──────────────────────────────────────
-        if (address(cfg.feed) == address(0)) revert PriceOracle__FeedNotFound(asset);
+        if (address(cfg.feed) == address(0))
+            revert PriceOracle__FeedNotFound(asset);
 
         // ── 2. Fetch latest round data ──────────────────────────────────────
         (
-            uint80  roundId,
-            int256  answer,
+            uint80 roundId,
+            int256 answer,
             ,
             uint256 updatedAt,
-            uint80  answeredInRound
+            uint80 answeredInRound
         ) = cfg.feed.latestRoundData();
 
         // ── 3a. Price must be positive ──────────────────────────────────────
@@ -228,7 +232,8 @@ contract PriceOracle is IPriceOracle, Ownable {
 
         // ── 3c. Round completeness ──────────────────────────────────────────
         // answeredInRound < roundId means the latest round is not yet answered.
-        if (answeredInRound < roundId) revert PriceOracle__IncompleteRound(asset);
+        if (answeredInRound < roundId)
+            revert PriceOracle__IncompleteRound(asset);
 
         // ── 4. Normalise 8-decimal → 18-decimal (WAD) ──────────────────────
         return uint256(answer) * CHAINLINK_TO_WAD;
