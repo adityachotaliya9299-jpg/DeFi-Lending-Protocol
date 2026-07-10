@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title  EfficiencyMode (E-Mode)
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Inspired by Aave v3 Efficiency Mode.
  *
  * ─── What is E-Mode? ──────────────────────────────────────────────────────────
@@ -34,17 +34,16 @@ pragma solidity ^0.8.24;
  *   come from the category config, NOT the per-asset CollateralManager config.
  */
 library EfficiencyMode {
-
     uint8 public constant NO_EMODE = 0;
 
     // ─── Structs ──────────────────────────────────────────────────────────────
 
     struct EModeCategory {
-        uint16 ltv;                    // bps — overrides asset LTV
-        uint16 liquidationThreshold;   // bps — overrides asset liquidationThreshold
-        uint16 liquidationBonus;       // bps — overrides asset liquidationBonus
-        string label;                  // e.g. "ETH Correlated"
-        bool   active;
+        uint16 ltv; // bps — overrides asset LTV
+        uint16 liquidationThreshold; // bps — overrides asset liquidationThreshold
+        uint16 liquidationBonus; // bps — overrides asset liquidationBonus
+        string label; // e.g. "ETH Correlated"
+        bool active;
     }
 
     // ─── Errors ───────────────────────────────────────────────────────────────
@@ -68,10 +67,8 @@ library EfficiencyMode {
         uint8 borrowEModeId
     ) internal pure returns (bool eligible) {
         if (userEModeCategory == NO_EMODE) return false;
-        return (
-            collateralEModeId == userEModeCategory &&
-            borrowEModeId     == userEModeCategory
-        );
+        return (collateralEModeId == userEModeCategory &&
+            borrowEModeId == userEModeCategory);
     }
 
     /**
@@ -82,8 +79,8 @@ library EfficiencyMode {
      */
     function getEffectiveLtv(
         uint256 standard,
-        uint16  emodeLtv,
-        bool    eligible
+        uint16 emodeLtv,
+        bool eligible
     ) internal pure returns (uint256) {
         return eligible ? uint256(emodeLtv) : standard;
     }
@@ -93,8 +90,8 @@ library EfficiencyMode {
      */
     function getEffectiveLiqThreshold(
         uint256 standard,
-        uint16  eLiqThreshold,
-        bool    eligible
+        uint16 eLiqThreshold,
+        bool eligible
     ) internal pure returns (uint256) {
         return eligible ? uint256(eLiqThreshold) : standard;
     }
