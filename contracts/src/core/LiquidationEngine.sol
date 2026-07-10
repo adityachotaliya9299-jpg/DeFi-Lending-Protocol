@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IERC20}       from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20}    from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ILendingPool} from "../interfaces/ILendingPool.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
-import {WadRayMath}   from "../math/WadRayMath.sol";
+import {WadRayMath} from "../math/WadRayMath.sol";
 import {PercentageMath} from "../math/PercentageMath.sol";
 
 /**
  * @title  LiquidationEngine
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Helper contract for liquidators.
  *         Provides view functions to discover liquidatable positions and
  *         wraps LendingPool.liquidate() with pre-validation.
@@ -23,8 +25,8 @@ import {PercentageMath} from "../math/PercentageMath.sol";
  *         A real production version would add flash-loan liquidation here.
  */
 contract LiquidationEngine {
-    using SafeERC20     for IERC20;
-    using WadRayMath    for uint256;
+    using SafeERC20 for IERC20;
+    using WadRayMath for uint256;
     using PercentageMath for uint256;
 
     uint256 private constant HEALTH_FACTOR_OK = 1e18;
@@ -46,9 +48,9 @@ contract LiquidationEngine {
     );
 
     constructor(address pool_, address oracle_) {
-        if (pool_   == address(0)) revert LiquidationEngine__ZeroAddress();
+        if (pool_ == address(0)) revert LiquidationEngine__ZeroAddress();
         if (oracle_ == address(0)) revert LiquidationEngine__ZeroAddress();
-        pool   = ILendingPool(pool_);
+        pool = ILendingPool(pool_);
         oracle = IPriceOracle(oracle_);
     }
 
@@ -66,18 +68,25 @@ contract LiquidationEngine {
     /**
      * @notice Returns full account data for a potential liquidation target.
      */
-    function getLiquidationData(address borrower)
-        external view
+    function getLiquidationData(
+        address borrower
+    )
+        external
+        view
         returns (
             uint256 totalCollateralUsd,
             uint256 totalDebtUsd,
             uint256 healthFactor,
             uint256 availableBorrowUsd,
-            bool    liquidatable
+            bool liquidatable
         )
     {
-        (totalCollateralUsd, totalDebtUsd, healthFactor, availableBorrowUsd)
-            = pool.getUserAccountData(borrower);
+        (
+            totalCollateralUsd,
+            totalDebtUsd,
+            healthFactor,
+            availableBorrowUsd
+        ) = pool.getUserAccountData(borrower);
         liquidatable = healthFactor < HEALTH_FACTOR_OK;
     }
 
@@ -99,22 +108,27 @@ contract LiquidationEngine {
         address collateralAsset,
         uint256 debtAmount
     ) external view returns (uint256 collateralSeized, uint256 profitUsd) {
-        ILendingPool.ReserveData memory debtRes  = pool.getReserveData(debtAsset);
-        ILendingPool.ReserveData memory collRes  = pool.getReserveData(collateralAsset);
+        ILendingPool.ReserveData memory debtRes = pool.getReserveData(
+            debtAsset
+        );
+        ILendingPool.ReserveData memory collRes = pool.getReserveData(
+            collateralAsset
+        );
 
-        uint256 currentDebt = pool.getUserScaledBorrow(borrower, debtAsset)
+        uint256 currentDebt = pool
+            .getUserScaledBorrow(borrower, debtAsset)
             .rayMul(debtRes.borrowIndex);
 
-       uint256 maxClose = currentDebt.percentMul(5_000);
+        uint256 maxClose = currentDebt.percentMul(5_000);
         if (debtAmount > maxClose) debtAmount = maxClose;
 
-        uint256 debtUsd         = oracle.getValueInUsd(debtAsset, debtAmount);
+        uint256 debtUsd = oracle.getValueInUsd(debtAsset, debtAmount);
         uint256 collateralPrice = oracle.getPrice(collateralAsset);
 
         // 8% liquidation bonus included in seize amount
         // (actual bonus comes from CollateralManager config in the pool)
         collateralSeized = (debtUsd * 1e18) / collateralPrice;
-        profitUsd        = (collateralSeized * collateralPrice / 1e18) - debtUsd;
+        profitUsd = ((collateralSeized * collateralPrice) / 1e18) - debtUsd;
 
         // _ = collRes; // silence unused warning
     }
@@ -145,7 +159,11 @@ contract LiquidationEngine {
         }
 
         // Pull debt asset from liquidator
-        IERC20(debtAsset).safeTransferFrom(msg.sender, address(this), debtAmount);
+        IERC20(debtAsset).safeTransferFrom(
+            msg.sender,
+            address(this),
+            debtAmount
+        );
 
         // Approve pool to pull funds
         IERC20(debtAsset).forceApprove(address(pool), debtAmount);
@@ -157,14 +175,20 @@ contract LiquidationEngine {
         pool.liquidate(borrower, debtAsset, collateralAsset, debtAmount);
 
         // Forward collateral to liquidator
-        uint256 collReceived = IERC20(collateralAsset).balanceOf(address(this)) - collBefore;
+        uint256 collReceived = IERC20(collateralAsset).balanceOf(
+            address(this)
+        ) - collBefore;
         if (collReceived > 0) {
             IERC20(collateralAsset).safeTransfer(msg.sender, collReceived);
         }
 
         emit LiquidationExecuted(
-            msg.sender, borrower, debtAsset, collateralAsset,
-            debtAmount, collReceived
+            msg.sender,
+            borrower,
+            debtAsset,
+            collateralAsset,
+            debtAmount,
+            collReceived
         );
     }
 }
