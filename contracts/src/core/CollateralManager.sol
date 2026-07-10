@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {AccessControl}      from "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ICollateralManager} from "../interfaces/ICollateralManager.sol";
-import {PercentageMath}     from "../math/PercentageMath.sol";
+import {PercentageMath} from "../math/PercentageMath.sol";
 
 /**
  * @title  CollateralManager
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Stores per-asset risk parameters and calculates health factors.
  *
  * Phase 1 additions:
@@ -28,10 +28,10 @@ contract CollateralManager is ICollateralManager, AccessControl {
 
     bytes32 public constant CONFIGURATOR_ROLE = keccak256("CONFIGURATOR_ROLE");
 
-    uint256 public constant MAX_LTV                   = 9_500;
+    uint256 public constant MAX_LTV = 9_500;
     uint256 public constant MAX_LIQUIDATION_THRESHOLD = 9_500;
-    uint256 public constant MAX_LIQUIDATION_BONUS     = 2_000;
-    uint256 public constant MAX_RESERVE_FACTOR        = 5_000;
+    uint256 public constant MAX_LIQUIDATION_BONUS = 2_000;
+    uint256 public constant MAX_RESERVE_FACTOR = 5_000;
 
     mapping(address => AssetConfig) private _configs;
     address[] private _supportedAssets;
@@ -40,14 +40,15 @@ contract CollateralManager is ICollateralManager, AccessControl {
     constructor(address admin) {
         if (admin == address(0)) revert CollateralManager__ZeroAddress();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(CONFIGURATOR_ROLE,  admin);
+        _grantRole(CONFIGURATOR_ROLE, admin);
     }
 
     // ─── Config management ────────────────────────────────────────────────────
 
-    function setAssetConfig(address asset, AssetConfig calldata cfg)
-        external override onlyRole(CONFIGURATOR_ROLE)
-    {
+    function setAssetConfig(
+        address asset,
+        AssetConfig calldata cfg
+    ) external override onlyRole(CONFIGURATOR_ROLE) {
         if (asset == address(0)) revert CollateralManager__ZeroAddress();
         if (cfg.ltv >= cfg.liquidationThreshold)
             revert CollateralManager__InvalidConfig("ltv >= liqThreshold");
@@ -76,9 +77,10 @@ contract CollateralManager is ICollateralManager, AccessControl {
      *
      * Example: setSupplyCap(WETH, 10_000e18) caps WETH deposits at 10,000 WETH.
      */
-    function setSupplyCap(address asset, uint256 newCap)
-        external onlyRole(CONFIGURATOR_ROLE)
-    {
+    function setSupplyCap(
+        address asset,
+        uint256 newCap
+    ) external onlyRole(CONFIGURATOR_ROLE) {
         uint256 oldCap = _configs[asset].supplyCap;
         _configs[asset].supplyCap = newCap;
         emit SupplyCapUpdated(asset, oldCap, newCap);
@@ -91,16 +93,17 @@ contract CollateralManager is ICollateralManager, AccessControl {
      *
      * Example: setBorrowCap(USDC, 8_000_000e6) caps USDC borrows at 8M USDC.
      */
-    function setBorrowCap(address asset, uint256 newCap)
-        external onlyRole(CONFIGURATOR_ROLE)
-    {
+    function setBorrowCap(
+        address asset,
+        uint256 newCap
+    ) external onlyRole(CONFIGURATOR_ROLE) {
         uint256 oldCap = _configs[asset].borrowCap;
         _configs[asset].borrowCap = newCap;
         emit BorrowCapUpdated(asset, oldCap, newCap);
     }
 
     function disableAsset(address asset) external onlyRole(CONFIGURATOR_ROLE) {
-        _configs[asset].isActive        = false;
+        _configs[asset].isActive = false;
         _configs[asset].isBorrowEnabled = false;
         emit AssetDisabled(asset);
     }
@@ -145,15 +148,21 @@ contract CollateralManager is ICollateralManager, AccessControl {
 
     // ─── View functions ───────────────────────────────────────────────────────
 
-    function getAssetConfig(address asset) external view override returns (AssetConfig memory) {
+    function getAssetConfig(
+        address asset
+    ) external view override returns (AssetConfig memory) {
         return _configs[asset];
     }
 
-    function isAssetActive(address asset) external view override returns (bool) {
+    function isAssetActive(
+        address asset
+    ) external view override returns (bool) {
         return _configs[asset].isActive;
     }
 
-    function isBorrowEnabled(address asset) external view override returns (bool) {
+    function isBorrowEnabled(
+        address asset
+    ) external view override returns (bool) {
         return _configs[asset].isBorrowEnabled;
     }
 
@@ -184,16 +193,18 @@ contract CollateralManager is ICollateralManager, AccessControl {
 
         uint256 adjustedCollateral;
         for (uint256 i; i < collateralAssets.length; ++i) {
-            uint256 liqThreshold = _configs[collateralAssets[i]].liquidationThreshold;
-            adjustedCollateral  += collateralUsds[i].percentMul(liqThreshold);
+            uint256 liqThreshold = _configs[collateralAssets[i]]
+                .liquidationThreshold;
+            adjustedCollateral += collateralUsds[i].percentMul(liqThreshold);
         }
 
         return (adjustedCollateral * 1e18) / totalDebtUsd;
     }
 
-    function getMaxBorrow(address collateralAsset, uint256 collateralUsd)
-        external view override returns (uint256)
-    {
+    function getMaxBorrow(
+        address collateralAsset,
+        uint256 collateralUsd
+    ) external view override returns (uint256) {
         return collateralUsd.percentMul(_configs[collateralAsset].ltv);
     }
 }
