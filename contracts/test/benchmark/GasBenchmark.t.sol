@@ -1,64 +1,89 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console2}    from "forge-std/Test.sol";
-import {LendingPool}        from "../../src/core/LendingPool.sol";
-import {CollateralManager}  from "../../src/core/CollateralManager.sol";
-import {PriceOracle}        from "../../src/oracle/PriceOracle.sol";
-import {InterestRateModel}  from "../../src/interest/InterestRateModel.sol";
-import {ProtocolTreasury}   from "../../src/treasury/ProtocolTreasury.sol";
+import {Test, console2} from "forge-std/Test.sol";
+import {LendingPool} from "../../src/core/LendingPool.sol";
+import {CollateralManager} from "../../src/core/CollateralManager.sol";
+import {PriceOracle} from "../../src/oracle/PriceOracle.sol";
+import {InterestRateModel} from "../../src/interest/InterestRateModel.sol";
+import {ProtocolTreasury} from "../../src/treasury/ProtocolTreasury.sol";
 import {ICollateralManager} from "../../src/interfaces/ICollateralManager.sol";
-import {MockChainlinkFeed}  from "../../src/mocks/MockChainlinkFeed.sol";
-import {MockERC20}          from "../../src/mocks/MockERC20.sol";
+import {MockChainlinkFeed} from "../../src/mocks/MockChainlinkFeed.sol";
+import {MockERC20} from "../../src/mocks/MockERC20.sol";
 
 /**
  * @title GasBenchmarkTest
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Gas benchmarks for core protocol operations
  *
  */
 contract GasBenchmarkTest is Test {
-
-    LendingPool       internal pool;
+    LendingPool internal pool;
     CollateralManager internal cm;
-    PriceOracle       internal oracle;
+    PriceOracle internal oracle;
     InterestRateModel internal irm;
-    ProtocolTreasury  internal treasury;
+    ProtocolTreasury internal treasury;
 
-    MockERC20         internal weth;
-    MockERC20         internal usdc;
+    MockERC20 internal weth;
+    MockERC20 internal usdc;
     MockChainlinkFeed internal ethFeed;
     MockChainlinkFeed internal usdcFeed;
 
     address internal admin = makeAddr("admin");
     address internal alice = makeAddr("alice");
-    address internal bob   = makeAddr("bob");
+    address internal bob = makeAddr("bob");
 
     function setUp() public {
         vm.startPrank(admin);
         treasury = new ProtocolTreasury(admin);
-        cm       = new CollateralManager(admin);
-        oracle   = new PriceOracle(admin);
-        irm      = new InterestRateModel(admin, 100, 400, 7_500, 8_000);
-        pool     = new LendingPool(admin, address(cm), address(oracle), address(irm), address(treasury));
+        cm = new CollateralManager(admin);
+        oracle = new PriceOracle(admin);
+        irm = new InterestRateModel(admin, 100, 400, 7_500, 8_000);
+        pool = new LendingPool(
+            admin,
+            address(cm),
+            address(oracle),
+            address(irm),
+            address(treasury)
+        );
 
         weth = new MockERC20("WETH", "WETH", 18);
         usdc = new MockERC20("USDC", "USDC", 6);
 
-        ethFeed  = new MockChainlinkFeed(); ethFeed.setPrice(2_000e8);
-        usdcFeed = new MockChainlinkFeed(); usdcFeed.setPrice(1e8);
+        ethFeed = new MockChainlinkFeed();
+        ethFeed.setPrice(2_000e8);
+        usdcFeed = new MockChainlinkFeed();
+        usdcFeed.setPrice(1e8);
 
-        oracle.registerFeed(address(weth), address(ethFeed),  3_600);
+        oracle.registerFeed(address(weth), address(ethFeed), 3_600);
         oracle.registerFeed(address(usdc), address(usdcFeed), 86_400);
 
-        cm.setAssetConfig(address(weth), ICollateralManager.AssetConfig({
-            ltv: 8_000, liquidationThreshold: 8_500, liquidationBonus: 800,
-            reserveFactor: 1_000, supplyCap: 0, borrowCap: 0, isActive: true, isBorrowEnabled: true
-        }));
-        cm.setAssetConfig(address(usdc), ICollateralManager.AssetConfig({
-            ltv: 8_500, liquidationThreshold: 9_000, liquidationBonus: 500,
-            reserveFactor: 500, supplyCap: 0, borrowCap: 0, isActive: true, isBorrowEnabled: true
-        }));
+        cm.setAssetConfig(
+            address(weth),
+            ICollateralManager.AssetConfig({
+                ltv: 8_000,
+                liquidationThreshold: 8_500,
+                liquidationBonus: 800,
+                reserveFactor: 1_000,
+                supplyCap: 0,
+                borrowCap: 0,
+                isActive: true,
+                isBorrowEnabled: true
+            })
+        );
+        cm.setAssetConfig(
+            address(usdc),
+            ICollateralManager.AssetConfig({
+                ltv: 8_500,
+                liquidationThreshold: 9_000,
+                liquidationBonus: 500,
+                reserveFactor: 500,
+                supplyCap: 0,
+                borrowCap: 0,
+                isActive: true,
+                isBorrowEnabled: true
+            })
+        );
 
         pool.initAsset(address(weth));
         pool.initAsset(address(usdc));
@@ -66,7 +91,7 @@ contract GasBenchmarkTest is Test {
 
         weth.mint(alice, 1_000e18);
         usdc.mint(alice, 1_000_000e6);
-        usdc.mint(bob,   1_000_000e6);
+        usdc.mint(bob, 1_000_000e6);
     }
 
     // =========================================================================
