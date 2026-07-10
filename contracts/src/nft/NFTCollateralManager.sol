@@ -2,13 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {
+    IERC721Receiver
+} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 /**
  * @title NFTCollateralManager
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Use ERC-721 NFTs as collateral for borrowing
  *
  * Key design:
@@ -20,12 +24,15 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
  * - Partial liquidation: not supported (NFTs are atomic)
  * - Each NFT tracked individually (tokenId → owner)
  */
-contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver {
-
-    bytes32 public constant ADMIN_ROLE  = keccak256("ADMIN_ROLE");
+contract NFTCollateralManager is
+    AccessControl,
+    ReentrancyGuard,
+    IERC721Receiver
+{
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
 
-    uint256 public constant BPS_TOTAL        = 10_000;
+    uint256 public constant BPS_TOTAL = 10_000;
     uint256 public constant HEALTH_FACTOR_OK = 1e18;
 
     error NFTCollateral__ZeroAddress();
@@ -37,17 +44,41 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     error NFTCollateral__ZeroFloorPrice();
     error NFTCollateral__LtvTooHigh();
 
-    event CollectionAdded(address indexed collection, uint256 ltvBps, uint256 liquidationBonusBps);
+    event CollectionAdded(
+        address indexed collection,
+        uint256 ltvBps,
+        uint256 liquidationBonusBps
+    );
     event FloorPriceUpdated(address indexed collection, uint256 newPrice);
-    event NFTDeposited(address indexed user, address indexed collection, uint256 tokenId, uint256 collateralValue);
-    event NFTWithdrawn(address indexed user, address indexed collection, uint256 tokenId);
-    event NFTLiquidated(address indexed borrower, address indexed liquidator, address collection, uint256 tokenId, uint256 debtRepaid);
-    event LoanCreated(address indexed user, address indexed collection, uint256 tokenId, uint256 borrowAmount);
+    event NFTDeposited(
+        address indexed user,
+        address indexed collection,
+        uint256 tokenId,
+        uint256 collateralValue
+    );
+    event NFTWithdrawn(
+        address indexed user,
+        address indexed collection,
+        uint256 tokenId
+    );
+    event NFTLiquidated(
+        address indexed borrower,
+        address indexed liquidator,
+        address collection,
+        uint256 tokenId,
+        uint256 debtRepaid
+    );
+    event LoanCreated(
+        address indexed user,
+        address indexed collection,
+        uint256 tokenId,
+        uint256 borrowAmount
+    );
 
     struct CollectionConfig {
-        uint256 ltvBps;              // max borrow % of floor price
+        uint256 ltvBps; // max borrow % of floor price
         uint256 liquidationBonusBps; // bonus for liquidators
-        bool    supported;
+        bool supported;
     }
 
     struct NFTPosition {
@@ -55,9 +86,9 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
         address collection;
         uint256 tokenId;
         uint256 floorPriceAtDeposit; // WAD
-        uint256 borrowedAmount;       // underlying token units
+        uint256 borrowedAmount; // underlying token units
         uint256 depositTime;
-        bool    hasLoan;
+        bool hasLoan;
     }
 
     // collection → config
@@ -97,20 +128,21 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
         uint256 liquidationBonusBps
     ) external onlyRole(ADMIN_ROLE) {
         if (collection == address(0)) revert NFTCollateral__ZeroAddress();
-        if (ltvBps > 7_000)          revert NFTCollateral__LtvTooHigh(); // max 70% for NFTs
+        if (ltvBps > 7_000) revert NFTCollateral__LtvTooHigh(); // max 70% for NFTs
 
         collections[collection] = CollectionConfig({
-            ltvBps:              ltvBps,
+            ltvBps: ltvBps,
             liquidationBonusBps: liquidationBonusBps,
-            supported:           true
+            supported: true
         });
 
         emit CollectionAdded(collection, ltvBps, liquidationBonusBps);
     }
 
-    function updateFloorPrice(address collection, uint256 price)
-        external onlyRole(ORACLE_ROLE)
-    {
+    function updateFloorPrice(
+        address collection,
+        uint256 price
+    ) external onlyRole(ORACLE_ROLE) {
         if (price == 0) revert NFTCollateral__ZeroFloorPrice();
         floorPrices[collection] = price;
         emit FloorPriceUpdated(collection, price);
@@ -120,28 +152,34 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     //  Deposit NFT as collateral
     // =========================================================================
 
-    function depositNFT(address collection, uint256 tokenId)
-        external nonReentrant
-    {
+    function depositNFT(
+        address collection,
+        uint256 tokenId
+    ) external nonReentrant {
         CollectionConfig memory cfg = collections[collection];
-        if (!cfg.supported) revert NFTCollateral__CollectionNotSupported(collection);
+        if (!cfg.supported)
+            revert NFTCollateral__CollectionNotSupported(collection);
 
         uint256 floor = floorPrices[collection];
         if (floor == 0) revert NFTCollateral__ZeroFloorPrice();
 
         // Transfer NFT from user to this contract
-        IERC721(collection).safeTransferFrom(msg.sender, address(this), tokenId);
+        IERC721(collection).safeTransferFrom(
+            msg.sender,
+            address(this),
+            tokenId
+        );
 
         uint256 collateralValue = (floor * cfg.ltvBps) / BPS_TOTAL;
 
         positions[collection][tokenId] = NFTPosition({
-            owner:               msg.sender,
-            collection:          collection,
-            tokenId:             tokenId,
+            owner: msg.sender,
+            collection: collection,
+            tokenId: tokenId,
             floorPriceAtDeposit: floor,
-            borrowedAmount:      0,
-            depositTime:         block.timestamp,
-            hasLoan:             false
+            borrowedAmount: 0,
+            depositTime: block.timestamp,
+            hasLoan: false
         });
 
         userCollections[msg.sender].push(collection);
@@ -154,9 +192,10 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     //  Withdraw NFT
     // =========================================================================
 
-    function withdrawNFT(address collection, uint256 tokenId)
-        external nonReentrant
-    {
+    function withdrawNFT(
+        address collection,
+        uint256 tokenId
+    ) external nonReentrant {
         NFTPosition storage pos = positions[collection][tokenId];
         if (pos.owner != msg.sender)
             revert NFTCollateral__NotOwner(msg.sender, pos.owner);
@@ -165,7 +204,11 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
 
         delete positions[collection][tokenId];
 
-        IERC721(collection).safeTransferFrom(address(this), msg.sender, tokenId);
+        IERC721(collection).safeTransferFrom(
+            address(this),
+            msg.sender,
+            tokenId
+        );
         emit NFTWithdrawn(msg.sender, collection, tokenId);
     }
 
@@ -173,9 +216,11 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     //  Borrow against NFT
     // =========================================================================
 
-    function borrow(address collection, uint256 tokenId, uint256 amount)
-        external nonReentrant
-    {
+    function borrow(
+        address collection,
+        uint256 tokenId,
+        uint256 amount
+    ) external nonReentrant {
         NFTPosition storage pos = positions[collection][tokenId];
         if (pos.owner != msg.sender)
             revert NFTCollateral__NotOwner(msg.sender, pos.owner);
@@ -187,7 +232,7 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
         require(pos.borrowedAmount + amount <= maxBorrow, "exceeds LTV");
 
         pos.borrowedAmount += amount;
-        pos.hasLoan         = true;
+        pos.hasLoan = true;
 
         // Transfer borrow token to user (pool must have funded this contract)
         // In production: integrates with LendingPool.borrow()
@@ -222,7 +267,11 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
         delete positions[collection][tokenId];
 
         // Transfer NFT to liquidator
-        IERC721(collection).safeTransferFrom(address(this), msg.sender, tokenId);
+        IERC721(collection).safeTransferFrom(
+            address(this),
+            msg.sender,
+            tokenId
+        );
 
         emit NFTLiquidated(prevOwner, msg.sender, collection, tokenId, debt);
     }
@@ -231,9 +280,10 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     //  View
     // =========================================================================
 
-    function getHealthFactor(address collection, uint256 tokenId)
-        external view returns (uint256)
-    {
+    function getHealthFactor(
+        address collection,
+        uint256 tokenId
+    ) external view returns (uint256) {
         return _getHealthFactor(collection, tokenId);
     }
 
@@ -242,15 +292,17 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
         return (floorPrices[collection] * cfg.ltvBps) / BPS_TOTAL;
     }
 
-    function getPosition(address collection, uint256 tokenId)
-        external view returns (NFTPosition memory)
-    {
+    function getPosition(
+        address collection,
+        uint256 tokenId
+    ) external view returns (NFTPosition memory) {
         return positions[collection][tokenId];
     }
 
-    function isLiquidatable(address collection, uint256 tokenId)
-        external view returns (bool)
-    {
+    function isLiquidatable(
+        address collection,
+        uint256 tokenId
+    ) external view returns (bool) {
         return _getHealthFactor(collection, tokenId) < HEALTH_FACTOR_OK;
     }
 
@@ -258,16 +310,18 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     //  Internal
     // =========================================================================
 
-    function _getHealthFactor(address collection, uint256 tokenId)
-        internal view returns (uint256)
-    {
+    function _getHealthFactor(
+        address collection,
+        uint256 tokenId
+    ) internal view returns (uint256) {
         NFTPosition storage pos = positions[collection][tokenId];
         if (!pos.hasLoan || pos.borrowedAmount == 0) return type(uint256).max;
 
         CollectionConfig memory cfg = collections[collection];
         uint256 currentFloor = floorPrices[collection];
         // Adjusted collateral = floor * liquidationThreshold (use ltv + 5%)
-        uint256 adjustedCollateral = (currentFloor * (cfg.ltvBps + 500)) / BPS_TOTAL;
+        uint256 adjustedCollateral = (currentFloor * (cfg.ltvBps + 500)) /
+            BPS_TOTAL;
         // HF = adjustedCollateral / debt
         return (adjustedCollateral * 1e18) / pos.borrowedAmount;
     }
@@ -276,9 +330,12 @@ contract NFTCollateralManager is AccessControl, ReentrancyGuard, IERC721Receiver
     //  ERC721Receiver
     // =========================================================================
 
-    function onERC721Received(address, address, uint256, bytes calldata)
-        external pure override returns (bytes4)
-    {
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 }
