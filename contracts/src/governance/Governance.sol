@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ownable}           from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ICollateralManager} from "../interfaces/ICollateralManager.sol";
 import {IInterestRateModel} from "../interfaces/IInterestRateModel.sol";
-import {InterestRateModel}  from "../interest/InterestRateModel.sol";
+import {InterestRateModel} from "../interest/InterestRateModel.sol";
 
 /**
  * @title  Governance
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice DAO-controlled parameter manager.
  *
  *         Controls:
@@ -27,15 +27,22 @@ import {InterestRateModel}  from "../interest/InterestRateModel.sol";
  *           • InterestRateModel.owner             → this contract (via transferOwnership)
  */
 contract Governance is Ownable {
-
     ICollateralManager public immutable collateralManager;
-    InterestRateModel  public immutable interestRateModel;
+    InterestRateModel public immutable interestRateModel;
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
-    event AssetConfigProposed(address indexed asset, ICollateralManager.AssetConfig config);
+    event AssetConfigProposed(
+        address indexed asset,
+        ICollateralManager.AssetConfig config
+    );
     event AssetConfigExecuted(address indexed asset);
-    event RateParamsUpdated(uint256 baseRate, uint256 slope1, uint256 slope2, uint256 optimal);
+    event RateParamsUpdated(
+        uint256 baseRate,
+        uint256 slope1,
+        uint256 slope2,
+        uint256 optimal
+    );
 
     // ─── Errors ───────────────────────────────────────────────────────────────
 
@@ -49,7 +56,7 @@ contract Governance is Ownable {
         address collateralManager_,
         address interestRateModel_
     ) Ownable(owner_) {
-        if (owner_             == address(0)) revert Governance__ZeroAddress();
+        if (owner_ == address(0)) revert Governance__ZeroAddress();
         if (collateralManager_ == address(0)) revert Governance__ZeroAddress();
         if (interestRateModel_ == address(0)) revert Governance__ZeroAddress();
 
@@ -77,20 +84,20 @@ contract Governance is Ownable {
      * @notice Disable an asset (freeze new deposits/borrows).
      */
     function disableAsset(address asset) external onlyOwner {
-    collateralManager.setAssetConfig(
-        asset,
-        ICollateralManager.AssetConfig({
-            ltv:                  0,
-            liquidationThreshold: 1, // must be > ltv
-            liquidationBonus:     0,
-            reserveFactor:        0,
-            supplyCap:            0,
-            borrowCap:            0,
-            isActive:             false,
-            isBorrowEnabled:      false
-        })
-    );
-}
+        collateralManager.setAssetConfig(
+            asset,
+            ICollateralManager.AssetConfig({
+                ltv: 0,
+                liquidationThreshold: 1, // must be > ltv
+                liquidationBonus: 0,
+                reserveFactor: 0,
+                supplyCap: 0,
+                borrowCap: 0,
+                isActive: false,
+                isBorrowEnabled: false
+            })
+        );
+    }
 
     // ─── Interest rate parameters ─────────────────────────────────────────────
 
@@ -109,20 +116,26 @@ contract Governance is Ownable {
         uint256 slopeTwo,
         uint256 optimalUtil
     ) external onlyOwner {
-        interestRateModel.setRateParams(baseRate, slopeOne, slopeTwo, optimalUtil);
+        interestRateModel.setRateParams(
+            baseRate,
+            slopeOne,
+            slopeTwo,
+            optimalUtil
+        );
         emit RateParamsUpdated(baseRate, slopeOne, slopeTwo, optimalUtil);
     }
 
     // ─── View helpers ─────────────────────────────────────────────────────────
 
-    function getAssetConfig(address asset)
-        external view returns (ICollateralManager.AssetConfig memory)
-    {
+    function getAssetConfig(
+        address asset
+    ) external view returns (ICollateralManager.AssetConfig memory) {
         return collateralManager.getAssetConfig(asset);
     }
 
     function getCurrentRateParams()
-        external view
+        external
+        view
         returns (
             uint256 baseRateRay,
             uint256 slopeOneRay,
