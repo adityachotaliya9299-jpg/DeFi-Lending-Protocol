@@ -1,32 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ReentrancyGuard}   from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Pausable}          from "@openzeppelin/contracts/utils/Pausable.sol";
-import {AccessControl}     from "@openzeppelin/contracts/access/AccessControl.sol";
-import {SafeERC20}         from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20}            from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata}    from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ILendingPool}      from "../interfaces/ILendingPool.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    IERC20Metadata
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ILendingPool} from "../interfaces/ILendingPool.sol";
 import {ICollateralManager} from "../interfaces/ICollateralManager.sol";
-import {IPriceOracle}      from "../interfaces/IPriceOracle.sol";
+import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {IInterestRateModel} from "../interfaces/IInterestRateModel.sol";
-import {LendingToken}      from "../tokens/LendingToken.sol";
-import {WadRayMath}          from "../math/WadRayMath.sol";
-import {PercentageMath}      from "../math/PercentageMath.sol";
-import {FlashLoanProvider}   from "./FlashLoanProvider.sol";
-import {IFlashLoanReceiver}  from "../interfaces/IFlashLoanReceiver.sol";
-import {IsolationMode}       from "../modes/IsolationMode.sol";
-import {EfficiencyMode}      from "../modes/EfficiencyMode.sol";
-import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {VariableDebtToken}  from "../tokens/VariableDebtToken.sol";
+import {LendingToken} from "../tokens/LendingToken.sol";
+import {WadRayMath} from "../math/WadRayMath.sol";
+import {PercentageMath} from "../math/PercentageMath.sol";
+import {FlashLoanProvider} from "./FlashLoanProvider.sol";
+import {IFlashLoanReceiver} from "../interfaces/IFlashLoanReceiver.sol";
+import {IsolationMode} from "../modes/IsolationMode.sol";
+import {EfficiencyMode} from "../modes/EfficiencyMode.sol";
+import {
+    IERC20Permit
+} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {VariableDebtToken} from "../tokens/VariableDebtToken.sol";
 import {IVariableDebtToken} from "../interfaces/IVariableDebtToken.sol";
-import {StableDebtToken}    from "../tokens/StableDebtToken.sol";
-import {IStableDebtToken}   from "../interfaces/IStableDebtToken.sol";
+import {StableDebtToken} from "../tokens/StableDebtToken.sol";
+import {IStableDebtToken} from "../interfaces/IStableDebtToken.sol";
 
 /**
  * @title  LendingPool
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Core protocol contract — handles deposits, borrows, repayments,
  *         withdrawals, and liquidations.
  *
@@ -57,9 +65,15 @@ import {IStableDebtToken}   from "../interfaces/IStableDebtToken.sol";
  *   • Close factor: liquidator can repay at most 50% of debt per call
  *   • Liquidation only when HF < 1.0
  */
-contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, FlashLoanProvider {
-    using SafeERC20   for IERC20;
-    using WadRayMath  for uint256;
+contract LendingPool is
+    ILendingPool,
+    ReentrancyGuard,
+    AccessControl,
+    Pausable,
+    FlashLoanProvider
+{
+    using SafeERC20 for IERC20;
+    using WadRayMath for uint256;
     using PercentageMath for uint256;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -83,20 +97,20 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     //  Constants
     // ─────────────────────────────────────────────────────────────────────────
 
-    uint256 private constant RAY             = WadRayMath.RAY;
-    uint256 private constant WAD             = WadRayMath.WAD;
+    uint256 private constant RAY = WadRayMath.RAY;
+    uint256 private constant WAD = WadRayMath.WAD;
     uint256 private constant HEALTH_FACTOR_OK = 1e18; // 1.0 in WAD
-    uint256 public  constant CLOSE_FACTOR_BPS = 5_000; // 50% of debt per liquidation
-    uint256 public  constant MAX_ASSETS_PER_USER = 10; // gas bound
+    uint256 public constant CLOSE_FACTOR_BPS = 5_000; // 50% of debt per liquidation
+    uint256 public constant MAX_ASSETS_PER_USER = 10; // gas bound
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Immutables
     // ─────────────────────────────────────────────────────────────────────────
 
     ICollateralManager public immutable collateralManager;
-    IPriceOracle       public immutable oracle;
+    IPriceOracle public immutable oracle;
     IInterestRateModel public immutable interestRateModel;
-    address            public           treasury;
+    address public treasury;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Storage
@@ -128,7 +142,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice True if this asset can only be used as isolated collateral.
-    mapping(address => bool)    public assetIsIsolated;
+    mapping(address => bool) public assetIsIsolated;
 
     /// @notice Max total USD (WAD) that can be borrowed against an isolated asset globally.
     mapping(address => uint256) public isolationDebtCeiling;
@@ -163,20 +177,20 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         address interestRateModel_,
         address treasury_
     ) {
-        if (admin_             == address(0)) revert LendingPool__ZeroAddress();
+        if (admin_ == address(0)) revert LendingPool__ZeroAddress();
         if (collateralManager_ == address(0)) revert LendingPool__ZeroAddress();
-        if (oracle_            == address(0)) revert LendingPool__ZeroAddress();
+        if (oracle_ == address(0)) revert LendingPool__ZeroAddress();
         if (interestRateModel_ == address(0)) revert LendingPool__ZeroAddress();
-        if (treasury_          == address(0)) revert LendingPool__ZeroAddress();
+        if (treasury_ == address(0)) revert LendingPool__ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
-        _grantRole(POOL_ADMIN_ROLE,    admin_);
-        _grantRole(GUARDIAN_ROLE,      admin_); // admin is also guardian initially
+        _grantRole(POOL_ADMIN_ROLE, admin_);
+        _grantRole(GUARDIAN_ROLE, admin_); // admin is also guardian initially
 
         collateralManager = ICollateralManager(collateralManager_);
-        oracle            = IPriceOracle(oracle_);
+        oracle = IPriceOracle(oracle_);
         interestRateModel = IInterestRateModel(interestRateModel_);
-        treasury          = treasury_;
+        treasury = treasury_;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -194,7 +208,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         if (!collateralManager.isAssetActive(asset))
             revert LendingPool__AssetNotSupported(asset);
 
-        uint8  dec    = IERC20Metadata(asset).decimals();
+        uint8 dec = IERC20Metadata(asset).decimals();
         string memory sym = IERC20Metadata(asset).symbol();
 
         // Deploy receipt token: "Lending WETH" → "lWETH"
@@ -204,7 +218,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             dec,
             asset,
             address(this), // admin
-            address(this)  // minter
+            address(this) // minter
         );
 
         VariableDebtToken vToken = new VariableDebtToken(
@@ -223,16 +237,16 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         );
 
         _reserves[asset] = ReserveData({
-            liquidityIndex:           uint128(RAY),
-            borrowIndex:              uint128(RAY),
-            totalScaledDeposits:      0,
-            totalScaledBorrows:       0,
-            lastUpdateTimestamp:      uint40(block.timestamp),
-            lTokenAddress:            address(lToken),
-            variableDebtTokenAddress: address(vToken),  // Phase 2
-            stableDebtTokenAddress:   address(sToken),  // Phase 3.1 — NEW
-            isActive:                 true,
-            isBorrowEnabled:          collateralManager.isBorrowEnabled(asset)
+            liquidityIndex: uint128(RAY),
+            borrowIndex: uint128(RAY),
+            totalScaledDeposits: 0,
+            totalScaledBorrows: 0,
+            lastUpdateTimestamp: uint40(block.timestamp),
+            lTokenAddress: address(lToken),
+            variableDebtTokenAddress: address(vToken), // Phase 2
+            stableDebtTokenAddress: address(sToken), // Phase 3.1 — NEW
+            isActive: true,
+            isBorrowEnabled: collateralManager.isBorrowEnabled(asset)
         });
 
         _assetList.push(asset);
@@ -256,10 +270,12 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      * @param  isolated  True to enable isolation mode.
      * @param  ceiling   Max USD value (WAD) borrowable against this collateral globally.
      */
-    function setIsolationConfig(address asset, bool isolated, uint256 ceiling)
-        external onlyRole(POOL_ADMIN_ROLE)
-    {
-        assetIsIsolated[asset]      = isolated;
+    function setIsolationConfig(
+        address asset,
+        bool isolated,
+        uint256 ceiling
+    ) external onlyRole(POOL_ADMIN_ROLE) {
+        assetIsIsolated[asset] = isolated;
         isolationDebtCeiling[asset] = ceiling;
         emit IsolationConfigSet(asset, isolated, ceiling);
     }
@@ -267,9 +283,11 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     /**
      * @notice Set whether `borrowAsset` can be borrowed when `collateral` is isolated.
      */
-    function setIsolationAllowedBorrow(address collateral, address borrowAsset, bool allowed)
-        external onlyRole(POOL_ADMIN_ROLE)
-    {
+    function setIsolationAllowedBorrow(
+        address collateral,
+        address borrowAsset,
+        bool allowed
+    ) external onlyRole(POOL_ADMIN_ROLE) {
         isolationAllowedBorrow[collateral][borrowAsset] = allowed;
         emit IsolationAllowedBorrowSet(collateral, borrowAsset, allowed);
     }
@@ -283,9 +301,10 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      * @param  id   Category ID (1-255, 0 is reserved for NO_EMODE).
      * @param  cat  Category parameters (ltv, liquidationThreshold, liquidationBonus, label).
      */
-    function setEModeCategory(uint8 id, EfficiencyMode.EModeCategory calldata cat)
-        external onlyRole(POOL_ADMIN_ROLE)
-    {
+    function setEModeCategory(
+        uint8 id,
+        EfficiencyMode.EModeCategory calldata cat
+    ) external onlyRole(POOL_ADMIN_ROLE) {
         require(id != EfficiencyMode.NO_EMODE, "id 0 reserved");
         EfficiencyMode.validateCategory(cat);
         eModeCategories[id] = cat;
@@ -295,9 +314,10 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     /**
      * @notice Assign an asset to an E-Mode category.
      */
-    function setAssetEModeCategory(address asset, uint8 categoryId)
-        external onlyRole(POOL_ADMIN_ROLE)
-    {
+    function setAssetEModeCategory(
+        address asset,
+        uint8 categoryId
+    ) external onlyRole(POOL_ADMIN_ROLE) {
         if (categoryId != EfficiencyMode.NO_EMODE) {
             require(eModeCategories[categoryId].active, "category not active");
         }
@@ -352,169 +372,204 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      * @notice Deposit `amount` of `asset` into the pool.
      *         Receive lTokens representing the deposit + accrued interest.
      */
-    function deposit(address asset, uint256 amount)
-        external override nonReentrant whenNotPaused
-    {
+    function deposit(
+        address asset,
+        uint256 amount
+    ) external override nonReentrant whenNotPaused {
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
 
         // Phase 1: supply cap check
-    {
-        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
-        collateralManager.checkSupplyCap(
-            asset,
-            currentSupply / 10**IERC20Metadata(asset).decimals(),
-            amount / 10**IERC20Metadata(asset).decimals()
-        );
-    }
+        {
+            uint256 currentSupply = (reserve.totalScaledDeposits *
+                reserve.liquidityIndex) / 1e27;
+            collateralManager.checkSupplyCap(
+                asset,
+                currentSupply / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
+            );
+        }
 
         _accrueInterest(asset, reserve);
 
         uint256 liquidityIndex = reserve.liquidityIndex;
-        uint256 scaledAmount   = amount.rayDiv(liquidityIndex);
+        uint256 scaledAmount = amount.rayDiv(liquidityIndex);
 
         // Transfer underlying from user → pool
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
 
         // Update state
         _scaledDeposits[msg.sender][asset] += scaledAmount;
-        reserve.totalScaledDeposits        += scaledAmount;
+        reserve.totalScaledDeposits += scaledAmount;
 
         // Track user's collateral list
         if (!_hasCollateral[msg.sender][asset]) {
-            require(_userCollateral[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
+            require(
+                _userCollateral[msg.sender].length < MAX_ASSETS_PER_USER,
+                "max assets"
+            );
             _userCollateral[msg.sender].push(asset);
             _hasCollateral[msg.sender][asset] = true;
         }
 
         // Mint lTokens
-        LendingToken(reserve.lTokenAddress).mint(msg.sender, amount, liquidityIndex);
+        LendingToken(reserve.lTokenAddress).mint(
+            msg.sender,
+            amount,
+            liquidityIndex
+        );
 
         emit Deposit(asset, msg.sender, amount);
     }
 
+    function depositWithPermit(
+        address asset,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external nonReentrant whenNotPaused {
+        if (amount == 0) revert LendingPool__ZeroAmount();
 
-     function depositWithPermit(
-    address asset,
-    uint256 amount,
-    uint256 deadline,
-    uint8 v, bytes32 r, bytes32 s
-) external nonReentrant whenNotPaused {
-    if (amount == 0) revert LendingPool__ZeroAmount();
-    
-    // Execute off-chain signed approval
-    IERC20Permit(asset).permit(
-        msg.sender, address(this), amount, deadline, v, r, s
-    );
-
-    // Standard deposit flow
-    ReserveData storage reserve = _getActiveReserve(asset);
-    // Phase 1: supply cap check
-    {
-        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
-        collateralManager.checkSupplyCap(
-            asset,
-            currentSupply / 10**IERC20Metadata(asset).decimals(),
-            amount / 10**IERC20Metadata(asset).decimals()
+        // Execute off-chain signed approval
+        IERC20Permit(asset).permit(
+            msg.sender,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
         );
+
+        // Standard deposit flow
+        ReserveData storage reserve = _getActiveReserve(asset);
+        // Phase 1: supply cap check
+        {
+            uint256 currentSupply = (reserve.totalScaledDeposits *
+                reserve.liquidityIndex) / 1e27;
+            collateralManager.checkSupplyCap(
+                asset,
+                currentSupply / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
+            );
+        }
+        _accrueInterest(asset, reserve);
+
+        uint256 liquidityIndex = reserve.liquidityIndex;
+        uint256 scaledAmount = amount.rayDiv(liquidityIndex);
+
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+        _scaledDeposits[msg.sender][asset] += scaledAmount;
+        reserve.totalScaledDeposits += scaledAmount;
+
+        if (!_hasCollateral[msg.sender][asset]) {
+            require(
+                _userCollateral[msg.sender].length < MAX_ASSETS_PER_USER,
+                "max assets"
+            );
+            _userCollateral[msg.sender].push(asset);
+            _hasCollateral[msg.sender][asset] = true;
+        }
+
+        LendingToken(reserve.lTokenAddress).mint(
+            msg.sender,
+            amount,
+            liquidityIndex
+        );
+        emit Deposit(asset, msg.sender, amount);
     }
-    _accrueInterest(asset, reserve);
-
-    uint256 liquidityIndex = reserve.liquidityIndex;
-    uint256 scaledAmount = amount.rayDiv(liquidityIndex);
-
-    IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-    _scaledDeposits[msg.sender][asset] += scaledAmount;
-    reserve.totalScaledDeposits += scaledAmount;
-
-    if (!_hasCollateral[msg.sender][asset]) {
-        require(_userCollateral[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
-        _userCollateral[msg.sender].push(asset);
-        _hasCollateral[msg.sender][asset] = true;
-    }
-
-    LendingToken(reserve.lTokenAddress).mint(msg.sender, amount, liquidityIndex);
-    emit Deposit(asset, msg.sender, amount);
-}
-
 
     function repayWithPermit(
-    address asset,
-    uint256 amount,
-    uint256 deadline,
-    uint8 v, bytes32 r, bytes32 s
-) external nonReentrant returns (uint256 repaid) {
-    if (amount == 0) revert LendingPool__ZeroAmount();
-    
-    // Execute off-chain signed approval
-    IERC20Permit(asset).permit(
-        msg.sender, address(this), amount, deadline, v, r, s
-    );
+        address asset,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external nonReentrant returns (uint256 repaid) {
+        if (amount == 0) revert LendingPool__ZeroAmount();
 
-    // Standard repay flow
-    ReserveData storage reserve = _getActiveReserve(asset);
-    // Phase 1: supply cap check
-    {
-        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
-        collateralManager.checkSupplyCap(
-            asset,
-            currentSupply / 10**IERC20Metadata(asset).decimals(),
-            amount / 10**IERC20Metadata(asset).decimals()
+        // Execute off-chain signed approval
+        IERC20Permit(asset).permit(
+            msg.sender,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
         );
-    }
-    _accrueInterest(asset, reserve);
 
-    uint256 borrowIndex = reserve.borrowIndex;
-    uint256 scaledDebt = _scaledBorrows[msg.sender][asset];
-    uint256 currentDebt = scaledDebt.rayMul(borrowIndex);
+        // Standard repay flow
+        ReserveData storage reserve = _getActiveReserve(asset);
+        // Phase 1: supply cap check
+        {
+            uint256 currentSupply = (reserve.totalScaledDeposits *
+                reserve.liquidityIndex) / 1e27;
+            collateralManager.checkSupplyCap(
+                asset,
+                currentSupply / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
+            );
+        }
+        _accrueInterest(asset, reserve);
 
-    if (currentDebt == 0) revert LendingPool__InsufficientBalance();
+        uint256 borrowIndex = reserve.borrowIndex;
+        uint256 scaledDebt = _scaledBorrows[msg.sender][asset];
+        uint256 currentDebt = scaledDebt.rayMul(borrowIndex);
 
-    repaid = amount > currentDebt ? currentDebt : amount;
+        if (currentDebt == 0) revert LendingPool__InsufficientBalance();
 
-    uint256 scaledRepay = repaid.rayDiv(borrowIndex);
-    if (scaledDebt - scaledRepay < 1) {
-        scaledRepay = scaledDebt;
-        repaid = currentDebt;
-    }
+        repaid = amount > currentDebt ? currentDebt : amount;
 
-    // Phase 2: Burn debt token
-    IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
-        msg.sender,
-        repaid,
-        borrowIndex
-    );
+        uint256 scaledRepay = repaid.rayDiv(borrowIndex);
+        if (scaledDebt - scaledRepay < 1) {
+            scaledRepay = scaledDebt;
+            repaid = currentDebt;
+        }
 
-    _scaledBorrows[msg.sender][asset] -= scaledRepay;
-    reserve.totalScaledBorrows        -= scaledRepay;
+        // Phase 2: Burn debt token
+        IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
+            msg.sender,
+            repaid,
+            borrowIndex
+        );
+
+        _scaledBorrows[msg.sender][asset] -= scaledRepay;
+        reserve.totalScaledBorrows -= scaledRepay;
 
         if (_scaledBorrows[msg.sender][asset] == 0) {
             _removeBorrow(msg.sender, asset);
             // Also clear variable debt token to keep ERC-20 view consistent
-            uint256 vTokenBal = IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .balanceOf(msg.sender);
+            uint256 vTokenBal = IVariableDebtToken(
+                reserve.variableDebtTokenAddress
+            ).balanceOf(msg.sender);
             if (vTokenBal > 0) {
                 IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
-                    msg.sender, vTokenBal, borrowIndex
+                    msg.sender,
+                    vTokenBal,
+                    borrowIndex
                 );
             }
         }
 
-    // Collect reserve factor
-    ICollateralManager.AssetConfig memory cfg = collateralManager.getAssetConfig(asset);
-    uint256 reserveCut = repaid.percentMul(cfg.reserveFactor);
-    uint256 toPool = repaid - reserveCut;
+        // Collect reserve factor
+        ICollateralManager.AssetConfig memory cfg = collateralManager
+            .getAssetConfig(asset);
+        uint256 reserveCut = repaid.percentMul(cfg.reserveFactor);
+        uint256 toPool = repaid - reserveCut;
 
-    IERC20(asset).safeTransferFrom(msg.sender, address(this), toPool);
-    if (reserveCut > 0) {
-        IERC20(asset).safeTransferFrom(msg.sender, treasury, reserveCut);
-        emit ReservesCollected(asset, reserveCut);
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), toPool);
+        if (reserveCut > 0) {
+            IERC20(asset).safeTransferFrom(msg.sender, treasury, reserveCut);
+            emit ReservesCollected(asset, reserveCut);
+        }
+
+        emit Repay(asset, msg.sender, repaid, msg.sender);
     }
 
-    emit Repay(asset, msg.sender, repaid, msg.sender);
-}
-
-    
     // ─────────────────────────────────────────────────────────────────────────
     //  Core — withdraw
     // ─────────────────────────────────────────────────────────────────────────
@@ -524,24 +579,26 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      *         Pass type(uint256).max to withdraw everything.
      * @return withdrawn  Actual amount transferred to the caller.
      */
-    function withdraw(address asset, uint256 amount)
-        external override nonReentrant returns (uint256 withdrawn)
-    {
+    function withdraw(
+        address asset,
+        uint256 amount
+    ) external override nonReentrant returns (uint256 withdrawn) {
         ReserveData storage reserve = _getActiveReserve(asset);
-            // Phase 1: supply cap check
-    {
-        uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
-        collateralManager.checkSupplyCap(
-            asset,
-            currentSupply / 10**IERC20Metadata(asset).decimals(),
-            amount / 10**IERC20Metadata(asset).decimals()
-        );
-    }
+        // Phase 1: supply cap check
+        {
+            uint256 currentSupply = (reserve.totalScaledDeposits *
+                reserve.liquidityIndex) / 1e27;
+            collateralManager.checkSupplyCap(
+                asset,
+                currentSupply / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
+            );
+        }
         _accrueInterest(asset, reserve);
 
-        uint256 liquidityIndex  = reserve.liquidityIndex;
-        uint256 scaledBalance   = _scaledDeposits[msg.sender][asset];
-        uint256 currentBalance  = scaledBalance.rayMul(liquidityIndex);
+        uint256 liquidityIndex = reserve.liquidityIndex;
+        uint256 scaledBalance = _scaledDeposits[msg.sender][asset];
+        uint256 currentBalance = scaledBalance.rayMul(liquidityIndex);
 
         if (currentBalance == 0) revert LendingPool__InsufficientBalance();
 
@@ -552,7 +609,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         // Avoid dust rounding: if remaining scaled < 1, withdraw everything
         if (scaledBalance - scaledAmount < 1) {
             scaledAmount = scaledBalance;
-            withdrawn    = currentBalance;
+            withdrawn = currentBalance;
         }
 
         // Simulate post-withdrawal health factor
@@ -568,7 +625,11 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         }
 
         // Burn lTokens
-        LendingToken(reserve.lTokenAddress).burn(msg.sender, withdrawn, liquidityIndex);
+        LendingToken(reserve.lTokenAddress).burn(
+            msg.sender,
+            withdrawn,
+            liquidityIndex
+        );
 
         // Transfer underlying to user
         IERC20(asset).safeTransfer(msg.sender, withdrawn);
@@ -584,30 +645,35 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      * @notice Borrow `amount` of `asset` against deposited collateral.
      *         Health factor must remain >= 1.0 after the borrow.
      */
-    function borrow(address asset, uint256 amount, uint8 mode)
-        external override nonReentrant whenNotPaused
-    {
+    function borrow(
+        address asset,
+        uint256 amount,
+        uint8 mode
+    ) external override nonReentrant whenNotPaused {
         require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
         // Phase 1: supply cap check
         {
-            uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+            uint256 currentSupply = (reserve.totalScaledDeposits *
+                reserve.liquidityIndex) / 1e27;
             collateralManager.checkSupplyCap(
                 asset,
-                currentSupply / 10**IERC20Metadata(asset).decimals(),
-                amount / 10**IERC20Metadata(asset).decimals()
+                currentSupply / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
             );
         }
-        if (!reserve.isBorrowEnabled) revert LendingPool__BorrowNotEnabled(asset);
+        if (!reserve.isBorrowEnabled)
+            revert LendingPool__BorrowNotEnabled(asset);
 
         // Phase 1: borrow cap check
         {
-            uint256 currentBorrows = (reserve.totalScaledBorrows * reserve.borrowIndex) / 1e27;
+            uint256 currentBorrows = (reserve.totalScaledBorrows *
+                reserve.borrowIndex) / 1e27;
             collateralManager.checkBorrowCap(
                 asset,
-                currentBorrows / 10**IERC20Metadata(asset).decimals(),
-                amount / 10**IERC20Metadata(asset).decimals()
+                currentBorrows / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
             );
         }
 
@@ -617,7 +683,7 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         uint256 available = _getAvailableLiquidity(asset, reserve);
         if (amount > available) revert LendingPool__InsufficientLiquidity();
 
-        uint256 borrowIndex  = reserve.borrowIndex;
+        uint256 borrowIndex = reserve.borrowIndex;
         uint256 scaledAmount = amount.rayDiv(borrowIndex);
 
         // Mint debt token based on mode
@@ -640,16 +706,22 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
 
         // Update state BEFORE health check (simulate post-borrow state)
         _scaledBorrows[msg.sender][asset] += scaledAmount;
-        reserve.totalScaledBorrows        += scaledAmount;
+        reserve.totalScaledBorrows += scaledAmount;
 
         if (!_hasBorrow[msg.sender][asset]) {
-            require(_userBorrows[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
+            require(
+                _userBorrows[msg.sender].length < MAX_ASSETS_PER_USER,
+                "max assets"
+            );
             _userBorrows[msg.sender].push(asset);
             _hasBorrow[msg.sender][asset] = true;
         }
 
         if (!_hasBorrow[msg.sender][asset]) {
-            require(_userBorrows[msg.sender].length < MAX_ASSETS_PER_USER, "max assets");
+            require(
+                _userBorrows[msg.sender].length < MAX_ASSETS_PER_USER,
+                "max assets"
+            );
             _userBorrows[msg.sender].push(asset);
             _hasBorrow[msg.sender][asset] = true;
         }
@@ -671,10 +743,12 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
 
             // Check and update the global isolation debt ceiling
             uint256 borrowUsd = oracle.getValueInUsd(asset, amount);
-            uint256 newDebt   = isolationCurrentDebt[coll] + borrowUsd;
+            uint256 newDebt = isolationCurrentDebt[coll] + borrowUsd;
             if (newDebt > isolationDebtCeiling[coll])
                 revert LendingPool__IsolationDebtCeilingExceeded(
-                    coll, isolationCurrentDebt[coll], isolationDebtCeiling[coll]
+                    coll,
+                    isolationCurrentDebt[coll],
+                    isolationDebtCeiling[coll]
                 );
             isolationCurrentDebt[coll] = newDebt;
             break; // a user can only have one isolated collateral active
@@ -695,25 +769,28 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
      *         Pass type(uint256).max to repay all outstanding debt.
      * @return repaid  Actual amount repaid.
      */
-   function repay(address asset, uint256 amount, uint8 mode)
-        external override nonReentrant returns (uint256 repaid)
-    {
+    function repay(
+        address asset,
+        uint256 amount,
+        uint8 mode
+    ) external override nonReentrant returns (uint256 repaid) {
         require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
         if (amount == 0) revert LendingPool__ZeroAmount();
         ReserveData storage reserve = _getActiveReserve(asset);
         // Phase 1: supply cap check
         {
-            uint256 currentSupply = (reserve.totalScaledDeposits * reserve.liquidityIndex) / 1e27;
+            uint256 currentSupply = (reserve.totalScaledDeposits *
+                reserve.liquidityIndex) / 1e27;
             collateralManager.checkSupplyCap(
                 asset,
-                currentSupply / 10**IERC20Metadata(asset).decimals(),
-                amount / 10**IERC20Metadata(asset).decimals()
+                currentSupply / 10 ** IERC20Metadata(asset).decimals(),
+                amount / 10 ** IERC20Metadata(asset).decimals()
             );
         }
         _accrueInterest(asset, reserve);
 
         uint256 borrowIndex = reserve.borrowIndex;
-        uint256 scaledDebt  = _scaledBorrows[msg.sender][asset];
+        uint256 scaledDebt = _scaledBorrows[msg.sender][asset];
         uint256 currentDebt = scaledDebt.rayMul(borrowIndex);
 
         if (currentDebt == 0) revert LendingPool__InsufficientBalance();
@@ -723,13 +800,13 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         uint256 scaledRepay = repaid.rayDiv(borrowIndex);
         if (scaledDebt - scaledRepay < 1) {
             scaledRepay = scaledDebt;
-            repaid      = currentDebt;
+            repaid = currentDebt;
         }
 
         // Burn debt token based on mode
         // Update accounting
         _scaledBorrows[msg.sender][asset] -= scaledRepay;
-        reserve.totalScaledBorrows        -= scaledRepay;
+        reserve.totalScaledBorrows -= scaledRepay;
 
         if (_scaledBorrows[msg.sender][asset] == 0) {
             _removeBorrow(msg.sender, asset);
@@ -742,7 +819,9 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             if (vBal > 0) {
                 uint256 toBurn = vBal > repaid ? repaid : vBal;
                 IVariableDebtToken(reserve.variableDebtTokenAddress).burn(
-                    msg.sender, toBurn, borrowIndex
+                    msg.sender,
+                    toBurn,
+                    borrowIndex
                 );
             }
         } else {
@@ -751,16 +830,17 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             if (sBal > 0) {
                 uint256 toBurn = sBal > repaid ? repaid : sBal;
                 IStableDebtToken(reserve.stableDebtTokenAddress).burn(
-                    msg.sender, toBurn
+                    msg.sender,
+                    toBurn
                 );
             }
         }
 
         // Collect reserve factor → treasury
-        ICollateralManager.AssetConfig memory cfg =
-            collateralManager.getAssetConfig(asset);
+        ICollateralManager.AssetConfig memory cfg = collateralManager
+            .getAssetConfig(asset);
         uint256 reserveCut = repaid.percentMul(cfg.reserveFactor);
-        uint256 toPool     = repaid - reserveCut;
+        uint256 toPool = repaid - reserveCut;
 
         IERC20(asset).safeTransferFrom(msg.sender, address(this), repaid);
         if (reserveCut > 0) {
@@ -797,38 +877,43 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         address collateralAsset,
         uint256 debtAmount
     ) external override nonReentrant {
-        if (debtAmount   == 0)             revert LendingPool__ZeroAmount();
-        if (debtAsset    == collateralAsset) revert LendingPool__SameAsset();
-        if (borrower     == address(0))    revert LendingPool__ZeroAddress();
+        if (debtAmount == 0) revert LendingPool__ZeroAmount();
+        if (debtAsset == collateralAsset) revert LendingPool__SameAsset();
+        if (borrower == address(0)) revert LendingPool__ZeroAddress();
 
         // ── 1. Verify position is liquidatable ──────────────────────────────
         uint256 hf = _calculateHealthFactor(borrower);
         if (hf >= HEALTH_FACTOR_OK) revert LendingPool__HealthFactorOk(hf);
 
         // ── 2. Accrue interest on both assets ───────────────────────────────
-        ReserveData storage debtReserve       = _getActiveReserve(debtAsset);
-        ReserveData storage collateralReserve = _getActiveReserve(collateralAsset);
-        _accrueInterest(debtAsset,       debtReserve);
+        ReserveData storage debtReserve = _getActiveReserve(debtAsset);
+        ReserveData storage collateralReserve = _getActiveReserve(
+            collateralAsset
+        );
+        _accrueInterest(debtAsset, debtReserve);
         _accrueInterest(collateralAsset, collateralReserve);
 
         // ── 3. Cap at close factor (50% of debt) ────────────────────────────
-        uint256 currentDebt = _scaledBorrows[borrower][debtAsset]
-            .rayMul(debtReserve.borrowIndex);
-        uint256 maxClose    = currentDebt.percentMul(CLOSE_FACTOR_BPS);
+        uint256 currentDebt = _scaledBorrows[borrower][debtAsset].rayMul(
+            debtReserve.borrowIndex
+        );
+        uint256 maxClose = currentDebt.percentMul(CLOSE_FACTOR_BPS);
         if (debtAmount > maxClose) debtAmount = maxClose;
 
         // ── 4. Calculate collateral to seize ────────────────────────────────
-        uint256 debtUsd       = oracle.getValueInUsd(debtAsset, debtAmount);
+        uint256 debtUsd = oracle.getValueInUsd(debtAsset, debtAmount);
         uint256 collateralPrice = oracle.getPrice(collateralAsset);
-        uint8   collDecimals  = IERC20Metadata(collateralAsset).decimals();
+        uint8 collDecimals = IERC20Metadata(collateralAsset).decimals();
 
-        ICollateralManager.AssetConfig memory cfg =
-            collateralManager.getAssetConfig(collateralAsset);
+        ICollateralManager.AssetConfig memory cfg = collateralManager
+            .getAssetConfig(collateralAsset);
 
         // collateralToSeize = debtUsd * (1 + bonus) / collateralPrice * 10^collDecimals
-        uint256 bonusFactor = PercentageMath.PERCENTAGE_FACTOR + cfg.liquidationBonus;
-        uint256 seizeUsd    = debtUsd.percentMul(bonusFactor);
-        uint256 collateralToSeize = (seizeUsd * (10 ** collDecimals)) / collateralPrice;
+        uint256 bonusFactor = PercentageMath.PERCENTAGE_FACTOR +
+            cfg.liquidationBonus;
+        uint256 seizeUsd = debtUsd.percentMul(bonusFactor);
+        uint256 collateralToSeize = (seizeUsd * (10 ** collDecimals)) /
+            collateralPrice;
 
         // Cap seizure at borrower's actual collateral
         uint256 collateralBalance = _scaledDeposits[borrower][collateralAsset]
@@ -836,21 +921,22 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         if (collateralToSeize > collateralBalance) {
             collateralToSeize = collateralBalance;
             // Recalculate actual debt repaid to match collateral seized
-            debtAmount = (collateralToSeize * collateralPrice)
-                / (10 ** collDecimals)
-                / bonusFactor
-                * PercentageMath.PERCENTAGE_FACTOR;
+            debtAmount =
+                ((collateralToSeize * collateralPrice) /
+                    (10 ** collDecimals) /
+                    bonusFactor) *
+                PercentageMath.PERCENTAGE_FACTOR;
         }
 
         // ── 5. Update borrower's debt ────────────────────────────────────────
         uint256 scaledDebtRepay = debtAmount.rayDiv(debtReserve.borrowIndex);
-        
+
         // Cap scaledRepay at actual scaled balance to prevent underflow
         uint256 borrowerScaled = _scaledBorrows[borrower][debtAsset];
         if (scaledDebtRepay > borrowerScaled) scaledDebtRepay = borrowerScaled;
 
         _scaledBorrows[borrower][debtAsset] -= scaledDebtRepay;
-        debtReserve.totalScaledBorrows      -= scaledDebtRepay;
+        debtReserve.totalScaledBorrows -= scaledDebtRepay;
         if (_scaledBorrows[borrower][debtAsset] == 0) {
             _removeBorrow(borrower, debtAsset);
         }
@@ -861,31 +947,46 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
         if (vBal > 0) {
             uint256 toBurn = vBal > debtAmount ? debtAmount : vBal;
             IVariableDebtToken(debtReserve.variableDebtTokenAddress).burn(
-                borrower, toBurn, debtReserve.borrowIndex
+                borrower,
+                toBurn,
+                debtReserve.borrowIndex
             );
         }
 
         // ── 6. Update borrower's collateral ─────────────────────────────────
-        uint256 scaledCollateral = collateralToSeize.rayDiv(collateralReserve.liquidityIndex);
+        uint256 scaledCollateral = collateralToSeize.rayDiv(
+            collateralReserve.liquidityIndex
+        );
         _scaledDeposits[borrower][collateralAsset] -= scaledCollateral;
-        collateralReserve.totalScaledDeposits      -= scaledCollateral;
+        collateralReserve.totalScaledDeposits -= scaledCollateral;
         if (_scaledDeposits[borrower][collateralAsset] == 0) {
             _removeCollateral(borrower, collateralAsset);
         }
 
         // ── 7. Burn borrower's lTokens ───────────────────────────────────────
-        LendingToken(collateralReserve.lTokenAddress)
-            .burn(borrower, collateralToSeize, collateralReserve.liquidityIndex);
+        LendingToken(collateralReserve.lTokenAddress).burn(
+            borrower,
+            collateralToSeize,
+            collateralReserve.liquidityIndex
+        );
 
         // ── 8. Transfer debtAsset from liquidator to pool ───────────────────
-        IERC20(debtAsset).safeTransferFrom(msg.sender, address(this), debtAmount);
+        IERC20(debtAsset).safeTransferFrom(
+            msg.sender,
+            address(this),
+            debtAmount
+        );
 
         // ── 9. Transfer collateral to liquidator ────────────────────────────
         IERC20(collateralAsset).safeTransfer(msg.sender, collateralToSeize);
 
         emit Liquidation(
-            borrower, debtAsset, collateralAsset,
-            debtAmount, collateralToSeize, msg.sender
+            borrower,
+            debtAsset,
+            collateralAsset,
+            debtAmount,
+            collateralToSeize,
+            msg.sender
         );
     }
 
@@ -893,18 +994,24 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
     //  View functions
     // ─────────────────────────────────────────────────────────────────────────
 
-    function getReserveData(address asset)
-        external view override returns (ReserveData memory)
-    {
+    function getReserveData(
+        address asset
+    ) external view override returns (ReserveData memory) {
         return _reserves[asset];
     }
 
-    function getUserHealthFactor(address user) external view override returns (uint256) {
+    function getUserHealthFactor(
+        address user
+    ) external view override returns (uint256) {
         return _calculateHealthFactor(user);
     }
 
-    function getUserAccountData(address user)
-        external view override
+    function getUserAccountData(
+        address user
+    )
+        external
+        view
+        override
         returns (
             uint256 totalCollateralUsd,
             uint256 totalDebtUsd,
@@ -912,13 +1019,17 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             uint256 availableBorrowUsd
         )
     {
-        (totalCollateralUsd, totalDebtUsd, healthFactor) = _getAccountTotals(user);
+        (totalCollateralUsd, totalDebtUsd, healthFactor) = _getAccountTotals(
+            user
+        );
         uint256 maxBorrowUsd;
         address[] memory collAssets = _userCollateral[user];
         for (uint256 i; i < collAssets.length; ++i) {
             address a = collAssets[i];
-            uint256 colUsd = oracle.getValueInUsd(a,
-                _scaledDeposits[user][a].rayMul(_reserves[a].liquidityIndex));
+            uint256 colUsd = oracle.getValueInUsd(
+                a,
+                _scaledDeposits[user][a].rayMul(_reserves[a].liquidityIndex)
+            );
             maxBorrowUsd += collateralManager.getMaxBorrow(a, colUsd);
         }
         availableBorrowUsd = maxBorrowUsd > totalDebtUsd
@@ -926,68 +1037,83 @@ contract LendingPool is ILendingPool, ReentrancyGuard, AccessControl, Pausable, 
             : 0;
     }
 
-    function getUserScaledDeposit(address user, address asset)
-        external view override returns (uint256)
-    {
+    function getUserScaledDeposit(
+        address user,
+        address asset
+    ) external view override returns (uint256) {
         return _scaledDeposits[user][asset];
     }
 
-    function getUserScaledBorrow(address user, address asset)
-        external view override returns (uint256)
-    {
+    function getUserScaledBorrow(
+        address user,
+        address asset
+    ) external view override returns (uint256) {
         return _scaledBorrows[user][asset];
     }
 
-    function getUserDeposit(address user, address asset)
-        external view override returns (uint256)
-    {
-        return _scaledDeposits[user][asset].rayMul(_reserves[asset].liquidityIndex);
+    function getUserDeposit(
+        address user,
+        address asset
+    ) external view override returns (uint256) {
+        return
+            _scaledDeposits[user][asset].rayMul(
+                _reserves[asset].liquidityIndex
+            );
     }
 
-    function getUserDebt(address user, address asset)
-        external view override returns (uint256)
-    {
+    function getUserDebt(
+        address user,
+        address asset
+    ) external view override returns (uint256) {
         ReserveData storage reserve = _reserves[asset];
         if (!reserve.isActive) return 0;
         return _scaledBorrows[user][asset].rayMul(reserve.borrowIndex);
     }
 
-function getAssetList() external view returns (address[] memory) {
+    function getAssetList() external view returns (address[] memory) {
         return _assetList;
     }
 
     //  NEW getter functions
-    function getReserveStableDebtToken(address asset)
-        external view returns (address)
-    {
+    function getReserveStableDebtToken(
+        address asset
+    ) external view returns (address) {
         return _reserves[asset].stableDebtTokenAddress;
     }
 
-    function getUserDebtByMode(address user, address asset, uint8 mode)
-        external view returns (uint256)
-    {
+    function getUserDebtByMode(
+        address user,
+        address asset,
+        uint8 mode
+    ) external view returns (uint256) {
         require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
         ReserveData memory reserve = _reserves[asset];
         if (mode == 1) {
-            return IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .balanceOf(user);
+            return
+                IVariableDebtToken(reserve.variableDebtTokenAddress).balanceOf(
+                    user
+                );
         } else {
-            return IStableDebtToken(reserve.stableDebtTokenAddress)
-                .balanceOf(user);
+            return
+                IStableDebtToken(reserve.stableDebtTokenAddress).balanceOf(
+                    user
+                );
         }
     }
 
-    function getReserveTotalDebtByMode(address asset, uint8 mode)
-        external view returns (uint256)
-    {
+    function getReserveTotalDebtByMode(
+        address asset,
+        uint8 mode
+    ) external view returns (uint256) {
         require(mode == 1 || mode == 2, "LendingPool__InvalidBorrowMode");
         ReserveData memory reserve = _reserves[asset];
         if (mode == 1) {
-            return IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .totalSupply();
+            return
+                IVariableDebtToken(reserve.variableDebtTokenAddress)
+                    .totalSupply();
         } else {
-            return IStableDebtToken(reserve.stableDebtTokenAddress)
-                .totalSupply();
+            return
+                IStableDebtToken(reserve.stableDebtTokenAddress).totalSupply();
         }
     }
 
@@ -995,46 +1121,75 @@ function getAssetList() external view returns (address[] memory) {
     //  Internal — interest accrual
     // ─────────────────────────────────────────────────────────────────────────
 
-    function _accrueInterest(address asset, ReserveData storage reserve) internal {
+    function _accrueInterest(
+        address asset,
+        ReserveData storage reserve
+    ) internal {
         uint256 timeDelta = block.timestamp - reserve.lastUpdateTimestamp;
         if (timeDelta == 0) return;
 
-        uint256 totalLiq    = reserve.totalScaledDeposits.rayMul(reserve.liquidityIndex);
-        
-        uint256 totalBorrow = IVariableDebtToken(reserve.variableDebtTokenAddress).totalSupply();
+        uint256 totalLiq = reserve.totalScaledDeposits.rayMul(
+            reserve.liquidityIndex
+        );
 
-        uint256 borrowRate = interestRateModel.calculateBorrowRate(totalLiq, totalBorrow);
+        uint256 totalBorrow = IVariableDebtToken(
+            reserve.variableDebtTokenAddress
+        ).totalSupply();
 
-        ICollateralManager.AssetConfig memory cfg =
-            collateralManager.getAssetConfig(asset);
+        uint256 borrowRate = interestRateModel.calculateBorrowRate(
+            totalLiq,
+            totalBorrow
+        );
+
+        ICollateralManager.AssetConfig memory cfg = collateralManager
+            .getAssetConfig(asset);
         uint256 supplyRate = interestRateModel.calculateSupplyRate(
-            totalLiq, totalBorrow, cfg.reserveFactor
+            totalLiq,
+            totalBorrow,
+            cfg.reserveFactor
         );
 
         // Linear approximation: index *= (1 + rate * dt)
         // Sufficient for per-block accrual; production would use e^(rate*dt)
-        uint256 borrowFactor  = RAY + borrowRate * timeDelta;
-        uint256 supplyFactor  = RAY + supplyRate * timeDelta;
+        uint256 borrowFactor = RAY + borrowRate * timeDelta;
+        uint256 supplyFactor = RAY + supplyRate * timeDelta;
 
-        reserve.borrowIndex    = uint128(uint256(reserve.borrowIndex).rayMul(borrowFactor));
-        reserve.liquidityIndex = uint128(uint256(reserve.liquidityIndex).rayMul(supplyFactor));
+        reserve.borrowIndex = uint128(
+            uint256(reserve.borrowIndex).rayMul(borrowFactor)
+        );
+        reserve.liquidityIndex = uint128(
+            uint256(reserve.liquidityIndex).rayMul(supplyFactor)
+        );
         reserve.lastUpdateTimestamp = uint40(block.timestamp);
 
-        emit InterestAccrued(asset, reserve.liquidityIndex, reserve.borrowIndex);
+        emit InterestAccrued(
+            asset,
+            reserve.liquidityIndex,
+            reserve.borrowIndex
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Internal — health factor
     // ─────────────────────────────────────────────────────────────────────────
 
-    function _calculateHealthFactor(address user) internal view returns (uint256) {
+    function _calculateHealthFactor(
+        address user
+    ) internal view returns (uint256) {
         (, , uint256 hf) = _getAccountTotals(user);
         return hf;
     }
 
-    function _getAccountTotals(address user)
-        internal view
-        returns (uint256 totalCollateralUsd, uint256 totalDebtUsd, uint256 healthFactor)
+    function _getAccountTotals(
+        address user
+    )
+        internal
+        view
+        returns (
+            uint256 totalCollateralUsd,
+            uint256 totalDebtUsd,
+            uint256 healthFactor
+        )
     {
         address[] memory collAssets = _userCollateral[user];
         address[] memory debtAssets = _userBorrows[user];
@@ -1046,41 +1201,55 @@ function getAssetList() external view returns (address[] memory) {
         // User gets E-Mode parameters only when ALL their collateral AND ALL
         // their debt assets are in the same E-Mode category as the user opted into.
         uint8 userEMode = userEModeCategory[user];
-        bool  eMode     = false;
+        bool eMode = false;
         if (userEMode != EfficiencyMode.NO_EMODE) {
             eMode = true;
             for (uint256 i; i < collAssets.length; ++i) {
-                if (assetEModeCategory[collAssets[i]] != userEMode) { eMode = false; break; }
+                if (assetEModeCategory[collAssets[i]] != userEMode) {
+                    eMode = false;
+                    break;
+                }
             }
             if (eMode) {
                 for (uint256 i; i < debtAssets.length; ++i) {
-                    if (assetEModeCategory[debtAssets[i]] != userEMode) { eMode = false; break; }
+                    if (assetEModeCategory[debtAssets[i]] != userEMode) {
+                        eMode = false;
+                        break;
+                    }
                 }
             }
         }
 
         for (uint256 i; i < collAssets.length; ++i) {
-            address a    = collAssets[i];
-            uint256 bal  = _scaledDeposits[user][a].rayMul(_reserves[a].liquidityIndex);
-            collUsds[i]  = oracle.getValueInUsd(a, bal);
+            address a = collAssets[i];
+            uint256 bal = _scaledDeposits[user][a].rayMul(
+                _reserves[a].liquidityIndex
+            );
+            collUsds[i] = oracle.getValueInUsd(a, bal);
             totalCollateralUsd += collUsds[i];
         }
 
         for (uint256 i; i < debtAssets.length; ++i) {
-            address a    = debtAssets[i];
-            uint256 debt = _scaledBorrows[user][a].rayMul(_reserves[a].borrowIndex);
-            debtUsds[i]  = oracle.getValueInUsd(a, debt);
+            address a = debtAssets[i];
+            uint256 debt = _scaledBorrows[user][a].rayMul(
+                _reserves[a].borrowIndex
+            );
+            debtUsds[i] = oracle.getValueInUsd(a, debt);
             totalDebtUsd += debtUsds[i];
         }
 
         // ── Health factor calculation ──────────────────────────────────────
         // If user is in E-Mode, override per-asset LTV with category params.
         if (eMode && collAssets.length > 0) {
-            EfficiencyMode.EModeCategory memory cat = eModeCategories[userEMode];
+            EfficiencyMode.EModeCategory memory cat = eModeCategories[
+                userEMode
+            ];
             // adjustedCollateral = sum(collUsd * eModeThreshold)
             uint256 adjustedColl;
             for (uint256 i; i < collUsds.length; ++i) {
-                adjustedColl += collUsds[i].percentMul(cat.liquidationThreshold);
+                adjustedColl += collUsds[i].percentMul(
+                    cat.liquidationThreshold
+                );
             }
             if (totalDebtUsd == 0) {
                 healthFactor = type(uint256).max;
@@ -1089,7 +1258,9 @@ function getAssetList() external view returns (address[] memory) {
             }
         } else {
             healthFactor = collateralManager.calculateHealthFactor(
-                collAssets, collUsds, debtUsds
+                collAssets,
+                collUsds,
+                debtUsds
             );
         }
     }
@@ -1103,19 +1274,24 @@ function getAssetList() external view returns (address[] memory) {
     //  Internal — helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    function _getActiveReserve(address asset)
-        internal view returns (ReserveData storage)
-    {
+    function _getActiveReserve(
+        address asset
+    ) internal view returns (ReserveData storage) {
         ReserveData storage r = _reserves[asset];
         if (!r.isActive) revert LendingPool__AssetNotSupported(asset);
         return r;
     }
 
-    function _getAvailableLiquidity(address asset, ReserveData storage reserve)
-        internal view returns (uint256)
-    {
-        uint256 totalDep = reserve.totalScaledDeposits.rayMul(reserve.liquidityIndex);
-        uint256 totalBor = reserve.totalScaledBorrows .rayMul(reserve.borrowIndex);
+    function _getAvailableLiquidity(
+        address asset,
+        ReserveData storage reserve
+    ) internal view returns (uint256) {
+        uint256 totalDep = reserve.totalScaledDeposits.rayMul(
+            reserve.liquidityIndex
+        );
+        uint256 totalBor = reserve.totalScaledBorrows.rayMul(
+            reserve.borrowIndex
+        );
         return totalDep > totalBor ? totalDep - totalBor : 0;
     }
 
@@ -1159,9 +1335,9 @@ function getAssetList() external view returns (address[] memory) {
      * @dev Returns how much of `asset` is available to flash-loan
      *      (total deposits minus current borrows, same as regular borrow liquidity).
      */
-    function _getFlashLoanAvailable(address asset)
-        internal view override returns (uint256)
-    {
+    function _getFlashLoanAvailable(
+        address asset
+    ) internal view override returns (uint256) {
         ReserveData storage r = _reserves[asset];
         if (!r.isActive) return 0;
         return _getAvailableLiquidity(asset, r);
@@ -1175,13 +1351,16 @@ function getAssetList() external view returns (address[] memory) {
      *      liquidityIndex += fee * RAY / totalDeposits
      *      (simplified linear bump; production would use rayMul compounding)
      */
-    function _onFlashLoanFeeCollected(address asset, uint256 fee) internal override {
+    function _onFlashLoanFeeCollected(
+        address asset,
+        uint256 fee
+    ) internal override {
         if (fee == 0) return;
         ReserveData storage r = _reserves[asset];
         if (r.totalScaledDeposits == 0) return;
 
         // Increase liquidity index so depositors earn the fee
-        uint256 currentLiq   = r.liquidityIndex;
+        uint256 currentLiq = r.liquidityIndex;
         uint256 totalDeposits = r.totalScaledDeposits.rayMul(currentLiq);
         // feeRay = fee * RAY / totalDeposits  →  newIndex = oldIndex + feeRay
         uint256 feeIndexDelta = (fee * 1e27) / totalDeposits;
