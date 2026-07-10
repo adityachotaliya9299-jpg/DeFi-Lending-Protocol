@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title  IsolationMode
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Inspired by Aave v3 Isolation Mode.
  *
  * ─── What is Isolation Mode? ─────────────────────────────────────────────────
@@ -32,13 +32,12 @@ pragma solidity ^0.8.24;
  *   Isolation mode caps the damage to the debt ceiling.
  */
 library IsolationMode {
-
     // ─── Structs ──────────────────────────────────────────────────────────────
 
     struct IsolationConfig {
-        bool    isIsolated;             // true = this asset is in isolation mode
-        uint256 debtCeiling;            // max USD value (WAD) that can be borrowed
-        uint256 currentDebt;            // total USD debt outstanding (WAD)
+        bool isIsolated; // true = this asset is in isolation mode
+        uint256 debtCeiling; // max USD value (WAD) that can be borrowed
+        uint256 currentDebt; // total USD debt outstanding (WAD)
         mapping(address => bool) allowedBorrowables; // only these can be borrowed
     }
 
@@ -72,7 +71,10 @@ library IsolationMode {
     ) internal view {
         // 1. Must borrow an allowed stablecoin
         if (!cfg.allowedBorrowables[borrowAsset])
-            revert IsolationMode__BorrowNotAllowedInIsolation(collateral, borrowAsset);
+            revert IsolationMode__BorrowNotAllowedInIsolation(
+                collateral,
+                borrowAsset
+            );
 
         // 2. Must not exceed debt ceiling
         if (cfg.currentDebt + borrowUsd > cfg.debtCeiling)
