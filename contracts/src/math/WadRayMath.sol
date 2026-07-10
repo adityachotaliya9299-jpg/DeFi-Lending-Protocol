@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title  WadRayMath
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Provides fixed-point arithmetic in two precisions:
  *
  *           WAD  = 1e18  →  used for token amounts, exchange rates, health factors
