@@ -15,13 +15,13 @@ LendFi is a non-custodial lending protocol inspired by Aave v2/v3 and MakerDAO. 
 
 **Finding Summary:**
 
-| Severity | Count | Status |
-|---|---|---|
-| 🔴 Critical | 0 | — |
-| 🟠 High | 0 | — |
-| 🟡 Medium | 3 | All mitigated |
-| 🔵 Low | 4 | All acknowledged |
-| ℹ️ Informational | 6 | Documented |
+| Severity         | Count | Status           |
+| ---------------- | ----- | ---------------- |
+| 🔴 Critical      | 0     | —                |
+| 🟠 High          | 0     | —                |
+| 🟡 Medium        | 3     | All mitigated    |
+| 🔵 Low           | 4     | All acknowledged |
+| ℹ️ Informational | 6     | Documented       |
 
 **Overall assessment:** The codebase demonstrates strong security practices. CEI pattern is consistently applied, ReentrancyGuard is present on all external state-mutating functions, and oracle safeguards are comprehensive. The protocol is suitable for testnet use and approaching mainnet readiness pending a formal third-party audit.
 
@@ -31,27 +31,27 @@ LendFi is a non-custodial lending protocol inspired by Aave v2/v3 and MakerDAO. 
 
 ### Contracts Reviewed
 
-| File | SLOC | Risk Level |
-|---|---|---|
-| `core/LendingPool.sol` | ~620 | High |
-| `core/CollateralManager.sol` | ~180 | High |
-| `core/CreditDelegation.sol` | ~160 | High |
-| `core/FlashLoanProvider.sol` | ~90 | Medium |
-| `core/LiquidationEngine.sol` | ~80 | Medium |
-| `oracle/PriceOracle.sol` | ~140 | High |
-| `oracle/OracleWithTWAP.sol` | ~220 | High |
-| `governance/GovernanceTimelock.sol` | ~180 | High |
-| `governance/Governance.sol` | ~100 | Medium |
-| `stablecoin/StablecoinVault.sol` | ~380 | High |
-| `stablecoin/ProtocolStablecoin.sol` | ~40 | Low |
-| `modes/IsolationMode.sol` | ~70 | Medium |
-| `modes/EfficiencyMode.sol` | ~90 | Medium |
-| `math/WadRayMath.sol` | ~120 | High |
-| `math/PercentageMath.sol` | ~60 | Medium |
-| `tokens/LendingToken.sol` | ~80 | Medium |
-| `treasury/ProtocolTreasury.sol` | ~60 | Low |
-| All interfaces (6) | ~200 | Informational |
-| Mocks (2) | ~80 | Out of scope |
+| File                                | SLOC | Risk Level    |
+| ----------------------------------- | ---- | ------------- |
+| `core/LendingPool.sol`              | ~620 | High          |
+| `core/CollateralManager.sol`        | ~180 | High          |
+| `core/CreditDelegation.sol`         | ~160 | High          |
+| `core/FlashLoanProvider.sol`        | ~90  | Medium        |
+| `core/LiquidationEngine.sol`        | ~80  | Medium        |
+| `oracle/PriceOracle.sol`            | ~140 | High          |
+| `oracle/OracleWithTWAP.sol`         | ~220 | High          |
+| `governance/GovernanceTimelock.sol` | ~180 | High          |
+| `governance/Governance.sol`         | ~100 | Medium        |
+| `stablecoin/StablecoinVault.sol`    | ~380 | High          |
+| `stablecoin/ProtocolStablecoin.sol` | ~40  | Low           |
+| `modes/IsolationMode.sol`           | ~70  | Medium        |
+| `modes/EfficiencyMode.sol`          | ~90  | Medium        |
+| `math/WadRayMath.sol`               | ~120 | High          |
+| `math/PercentageMath.sol`           | ~60  | Medium        |
+| `tokens/LendingToken.sol`           | ~80  | Medium        |
+| `treasury/ProtocolTreasury.sol`     | ~60  | Low           |
+| All interfaces (6)                  | ~200 | Informational |
+| Mocks (2)                           | ~80  | Out of scope  |
 
 ---
 
@@ -90,10 +90,12 @@ The deviation threshold between Chainlink and TWAP is 10%. A 0.5% TWAP error is 
 
 **Proof of Concept:**  
 At tick = 50,000 (roughly ETH at $4,800 if USDC/ETH pool):
+
 - Exact `1.0001^50000` = ~148.41
 - Approximation: `1 + 50000/10000` = 6.0 (significant error)
 
 At tick = 2,000 (typical active range):
+
 - Exact: ~1.2214
 - Approximation: 1.2 (1.8% error — acceptable)
 
@@ -123,6 +125,7 @@ The delegation limit is tracked correctly in `CreditDelegation.sol`, but the act
 
 **Recommendation:**  
 For production, implement one of:
+
 1. `pool.borrowOnBehalf(delegator, asset, amount, delegateeAllowance)` — pool verifies delegation and executes borrow against delegator's account
 2. Integrate with Aave's `approveDelegation()` on the debt token (variable rate debt token model)
 
@@ -196,6 +199,7 @@ Use a minimum fee accrual threshold or track fractional accrual in a higher-prec
 
 **Impact:**  
 A compromised guardian can pause the protocol. Users cannot deposit or borrow. However:
+
 - `withdraw()` and `repay()` are **never** paused — users can always recover funds
 - The protocol cannot be drained via a pause — only deposits/borrows are halted
 - Another guardian (or admin) can `unpause()` immediately
@@ -311,34 +315,34 @@ Add NatSpec to all public functions before a professional audit. Run `forge doc`
 
 ## Tools Used
 
-| Tool | Version | Finding |
-|---|---|---|
-| Slither | 0.10.x | `slither . --print human-summary` — 3 low warnings (all acknowledged above) |
-| Foundry forge test | 0.2.x | 381 tests, 100% pass rate |
-| forge coverage | 0.2.x | Run with `--ir-minimum` flag (stack-too-deep workaround) |
-| Mainnet fork tests | — | 10 tests against real Chainlink feeds |
-| Manual review | — | Line-by-line review of all high-risk contracts |
+| Tool               | Version | Finding                                                                     |
+| ------------------ | ------- | --------------------------------------------------------------------------- |
+| Slither            | 0.10.x  | `slither . --print human-summary` — 3 low warnings (all acknowledged above) |
+| Foundry forge test | 0.2.x   | 381 tests, 100% pass rate                                                   |
+| forge coverage     | 0.2.x   | Run with `--ir-minimum` flag (stack-too-deep workaround)                    |
+| Mainnet fork tests | —       | 10 tests against real Chainlink feeds                                       |
+| Manual review      | —       | Line-by-line review of all high-risk contracts                              |
 
 ---
 
 ## Attack Vectors Tested
 
-| Vector | Test | Result |
-|---|---|---|
-| Flash loan oracle manipulation | `EdgeCases.t.sol` + `ForkTest.t.sol` | ✅ Protected — TWAP prevents single-block attacks |
-| Reentrancy on deposit | `LendingPool.t.sol` | ✅ Protected — ReentrancyGuard + CEI |
-| Reentrancy on liquidate | `LendingPool.t.sol` | ✅ Protected — state updated before collateral transfer |
-| Liquidation of healthy position | `LendingPool.t.sol` | ✅ Reverts correctly |
-| Borrow without collateral | `LendingPool.t.sol` | ✅ Reverts with HealthFactorTooLow |
-| Over-repayment | `LendingPool.t.sol` | ✅ Capped to actual debt |
-| Governance drain attack | `GovernanceTimelock.t.sol` | ✅ 48h delay prevents immediate execution |
-| Isolation mode bypass | `Modes.t.sol` | ✅ Reverts with IsolationMode__BorrowNotAllowed |
-| Stale oracle price | `PriceOracle.t.sol` | ✅ Reverts with PriceOracle__StalePrice |
-| Negative Chainlink price | `PriceOracle.t.sol` | ✅ Reverts with PriceOracle__InvalidPrice |
-| CDP under-collateralisation | `StablecoinVault.t.sol` | ✅ Reverts with InsufficientCollateralRatio |
-| Credit delegation overspend | `CreditDelegation.t.sol` | ✅ Reverts with CreditDelegation__ExceedsLimit |
-| Close factor bypass | `LendingPool.t.sol` | ✅ Hard-coded 50% cap enforced |
-| Debt ceiling exceeded | `Modes.t.sol` | ✅ Reverts with IsolationMode__DebtCeilingExceeded |
+| Vector                          | Test                                 | Result                                                  |
+| ------------------------------- | ------------------------------------ | ------------------------------------------------------- |
+| Flash loan oracle manipulation  | `EdgeCases.t.sol` + `ForkTest.t.sol` | ✅ Protected — TWAP prevents single-block attacks       |
+| Reentrancy on deposit           | `LendingPool.t.sol`                  | ✅ Protected — ReentrancyGuard + CEI                    |
+| Reentrancy on liquidate         | `LendingPool.t.sol`                  | ✅ Protected — state updated before collateral transfer |
+| Liquidation of healthy position | `LendingPool.t.sol`                  | ✅ Reverts correctly                                    |
+| Borrow without collateral       | `LendingPool.t.sol`                  | ✅ Reverts with HealthFactorTooLow                      |
+| Over-repayment                  | `LendingPool.t.sol`                  | ✅ Capped to actual debt                                |
+| Governance drain attack         | `GovernanceTimelock.t.sol`           | ✅ 48h delay prevents immediate execution               |
+| Isolation mode bypass           | `Modes.t.sol`                        | ✅ Reverts with IsolationMode\_\_BorrowNotAllowed       |
+| Stale oracle price              | `PriceOracle.t.sol`                  | ✅ Reverts with PriceOracle\_\_StalePrice               |
+| Negative Chainlink price        | `PriceOracle.t.sol`                  | ✅ Reverts with PriceOracle\_\_InvalidPrice             |
+| CDP under-collateralisation     | `StablecoinVault.t.sol`              | ✅ Reverts with InsufficientCollateralRatio             |
+| Credit delegation overspend     | `CreditDelegation.t.sol`             | ✅ Reverts with CreditDelegation\_\_ExceedsLimit        |
+| Close factor bypass             | `LendingPool.t.sol`                  | ✅ Hard-coded 50% cap enforced                          |
+| Debt ceiling exceeded           | `Modes.t.sol`                        | ✅ Reverts with IsolationMode\_\_DebtCeilingExceeded    |
 
 ---
 
@@ -364,6 +368,7 @@ From `test/core/Invariants.t.sol` (fuzz-tested, 1000 runs each):
 LendFi demonstrates strong security fundamentals:
 
 **Strengths:**
+
 - Consistent CEI pattern across all 26 contracts
 - ReentrancyGuard on all external state-mutating functions
 - Comprehensive oracle safeguards (staleness, negative price, incomplete round)
@@ -372,6 +377,7 @@ LendFi demonstrates strong security fundamentals:
 - 381 automated tests including fuzz and mainnet fork tests
 
 **Areas for improvement before mainnet:**
+
 1. Replace TWAP tick approximation with exact Uniswap TickMath (M-01)
 2. Implement `borrowOnBehalf` for CreditDelegation (M-02)
 3. Transfer InterestRateModel ownership to Timelock directly (L-04)
@@ -382,6 +388,6 @@ LendFi demonstrates strong security fundamentals:
 
 ---
 
-*Report generated: April 2026*  
-*Protocol version: v1.0.0*  
-*Auditor: Aditya Chotaliya — https://adityachotaliya.vercel.app/*
+_Report generated: April 2026_  
+_Protocol version: v1.0.0_  
+_Auditor: Aditya Chotaliya — https://adityachotaliya.xyz/_
