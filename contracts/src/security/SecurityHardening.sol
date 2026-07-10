@@ -5,7 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title SecurityHardening
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Per-asset circuit breakers and front-running mitigations
  *
  * Key design:
@@ -17,14 +17,13 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  * - Rate limit: max borrow per block per asset (prevents oracle manipulation attacks)
  */
 contract SecurityHardening is AccessControl {
-
-    bytes32 public constant ADMIN_ROLE    = keccak256("ADMIN_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
-    uint256 public constant MAX_DEVIATION_BPS = 1_000;   // 10% max price deviation
-    uint256 public constant BORROW_COOLDOWN   = 1 hours;
-    uint256 public constant COMMIT_DELAY      = 2;        // blocks between commit and reveal
-    uint256 public constant BPS_TOTAL         = 10_000;
+    uint256 public constant MAX_DEVIATION_BPS = 1_000; // 10% max price deviation
+    uint256 public constant BORROW_COOLDOWN = 1 hours;
+    uint256 public constant COMMIT_DELAY = 2; // blocks between commit and reveal
+    uint256 public constant BPS_TOTAL = 10_000;
 
     error Security__AssetPaused(address asset);
     error Security__BorrowCooldown(address user, uint256 nextAllowed);
@@ -36,16 +35,28 @@ contract SecurityHardening is AccessControl {
     error Security__ZeroAddress();
 
     event AssetPaused(address indexed asset, bool paused);
-    event CommitSubmitted(bytes32 indexed commitHash, address indexed liquidator, uint256 revealBlock);
-    event CommitRevealed(bytes32 indexed commitHash, address indexed liquidator, address borrower);
+    event CommitSubmitted(
+        bytes32 indexed commitHash,
+        address indexed liquidator,
+        uint256 revealBlock
+    );
+    event CommitRevealed(
+        bytes32 indexed commitHash,
+        address indexed liquidator,
+        address borrower
+    );
     event BorrowRateLimitSet(address indexed asset, uint256 limitPerBlock);
-    event PriceDeviationChecked(address indexed asset, uint256 deviationBps, bool accepted);
+    event PriceDeviationChecked(
+        address indexed asset,
+        uint256 deviationBps,
+        bool accepted
+    );
 
     struct LiquidationCommit {
         address liquidator;
         uint256 commitBlock;
         uint256 expiryBlock; // commit expires after 100 blocks
-        bool    revealed;
+        bool revealed;
     }
 
     // asset → paused
@@ -95,18 +106,19 @@ contract SecurityHardening is AccessControl {
     //  Borrow cooldown
     // =========================================================================
 
-    function checkAndUpdateBorrowCooldown(address user) external onlyRole(ADMIN_ROLE) {
+    function checkAndUpdateBorrowCooldown(
+        address user
+    ) external onlyRole(ADMIN_ROLE) {
         uint256 next = lastBorrowTime[user] + BORROW_COOLDOWN;
-        if (block.timestamp < next)
-            revert Security__BorrowCooldown(user, next);
+        if (block.timestamp < next) revert Security__BorrowCooldown(user, next);
         lastBorrowTime[user] = block.timestamp;
     }
 
-    function getBorrowCooldownStatus(address user)
-        external view returns (bool canBorrow, uint256 nextAllowed)
-    {
+    function getBorrowCooldownStatus(
+        address user
+    ) external view returns (bool canBorrow, uint256 nextAllowed) {
         nextAllowed = lastBorrowTime[user] + BORROW_COOLDOWN;
-        canBorrow   = block.timestamp >= nextAllowed;
+        canBorrow = block.timestamp >= nextAllowed;
     }
 
     // =========================================================================
@@ -119,12 +131,16 @@ contract SecurityHardening is AccessControl {
      */
     function commitLiquidation(bytes32 commitHash) external {
         commits[commitHash] = LiquidationCommit({
-            liquidator:  msg.sender,
+            liquidator: msg.sender,
             commitBlock: block.number,
             expiryBlock: block.number + 100, // 100 block window to reveal
-            revealed:    false
+            revealed: false
         });
-        emit CommitSubmitted(commitHash, msg.sender, block.number + COMMIT_DELAY);
+        emit CommitSubmitted(
+            commitHash,
+            msg.sender,
+            block.number + COMMIT_DELAY
+        );
     }
 
     /**
@@ -147,9 +163,13 @@ contract SecurityHardening is AccessControl {
         );
 
         LiquidationCommit storage c = commits[commitHash];
-        if (c.liquidator == address(0)) revert Security__CommitNotFound(commitHash);
+        if (c.liquidator == address(0))
+            revert Security__CommitNotFound(commitHash);
         if (block.number < c.commitBlock + COMMIT_DELAY)
-            revert Security__CommitTooEarly(c.commitBlock + COMMIT_DELAY, block.number);
+            revert Security__CommitTooEarly(
+                c.commitBlock + COMMIT_DELAY,
+                block.number
+            );
         if (block.number > c.expiryBlock)
             revert Security__CommitExpired(c.expiryBlock, block.number);
 
@@ -159,23 +179,28 @@ contract SecurityHardening is AccessControl {
 
     function isCommitValid(bytes32 commitHash) external view returns (bool) {
         LiquidationCommit storage c = commits[commitHash];
-        return c.liquidator != address(0) &&
-               !c.revealed &&
-               block.number >= c.commitBlock + COMMIT_DELAY &&
-               block.number <= c.expiryBlock;
+        return
+            c.liquidator != address(0) &&
+            !c.revealed &&
+            block.number >= c.commitBlock + COMMIT_DELAY &&
+            block.number <= c.expiryBlock;
     }
 
     // =========================================================================
     //  Price deviation guard
     // =========================================================================
 
-    function setTwapPrice(address asset, uint256 price) external onlyRole(ADMIN_ROLE) {
+    function setTwapPrice(
+        address asset,
+        uint256 price
+    ) external onlyRole(ADMIN_ROLE) {
         twapPrices[asset] = price;
     }
 
-    function checkPriceDeviation(address asset, uint256 spotPrice)
-        external returns (bool accepted)
-    {
+    function checkPriceDeviation(
+        address asset,
+        uint256 spotPrice
+    ) external returns (bool accepted) {
         uint256 twap = twapPrices[asset];
         if (twap == 0) return true; // no TWAP set, skip check
 
@@ -196,16 +221,18 @@ contract SecurityHardening is AccessControl {
     //  Rate limit
     // =========================================================================
 
-    function setBorrowRateLimit(address asset, uint256 limitPerBlock)
-        external onlyRole(ADMIN_ROLE)
-    {
+    function setBorrowRateLimit(
+        address asset,
+        uint256 limitPerBlock
+    ) external onlyRole(ADMIN_ROLE) {
         borrowRateLimits[asset] = limitPerBlock;
         emit BorrowRateLimitSet(asset, limitPerBlock);
     }
 
-    function checkAndUpdateRateLimit(address asset, uint256 amount)
-        external onlyRole(ADMIN_ROLE)
-    {
+    function checkAndUpdateRateLimit(
+        address asset,
+        uint256 amount
+    ) external onlyRole(ADMIN_ROLE) {
         uint256 limit = borrowRateLimits[asset];
         if (limit == 0) return; // no limit
 
