@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ReentrancyGuard}      from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20}               from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20}            from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IFlashLoanReceiver}   from "../interfaces/IFlashLoanReceiver.sol";
-import {PercentageMath}       from "../math/PercentageMath.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IFlashLoanReceiver} from "../interfaces/IFlashLoanReceiver.sol";
+import {PercentageMath} from "../math/PercentageMath.sol";
 
 /**
  * @title  FlashLoanProvider
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Add-on contract that provides flash loan functionality.
  *         Inherit alongside LendingPool or deploy standalone and point at pool.
  *
@@ -37,13 +41,13 @@ import {PercentageMath}       from "../math/PercentageMath.sol";
  *   • Collateral swap: Borrow new collateral → swap old → repay flash loan
  */
 abstract contract FlashLoanProvider is ReentrancyGuard {
-    using SafeERC20    for IERC20;
+    using SafeERC20 for IERC20;
     using PercentageMath for uint256;
 
     // ── Constants ─────────────────────────────────────────────────────────────
 
-    uint256 public constant FLASH_LOAN_FEE_BPS = 9;    // 0.09%
-    uint256 public constant MAX_FLASH_LOAN_FEE = 100;  // 1.0% cap
+    uint256 public constant FLASH_LOAN_FEE_BPS = 9; // 0.09%
+    uint256 public constant MAX_FLASH_LOAN_FEE = 100; // 1.0% cap
 
     // ── Storage ───────────────────────────────────────────────────────────────
 
@@ -62,8 +66,16 @@ abstract contract FlashLoanProvider is ReentrancyGuard {
 
     // ── Errors ────────────────────────────────────────────────────────────────
 
-    error FlashLoan__InsufficientLiquidity(address asset, uint256 requested, uint256 available);
-    error FlashLoan__RepaymentFailed(address asset, uint256 expected, uint256 actual);
+    error FlashLoan__InsufficientLiquidity(
+        address asset,
+        uint256 requested,
+        uint256 available
+    );
+    error FlashLoan__RepaymentFailed(
+        address asset,
+        uint256 expected,
+        uint256 actual
+    );
     error FlashLoan__ReceiverReturnedFalse();
     error FlashLoan__ZeroAmount();
     error FlashLoan__ZeroReceiver();
@@ -93,15 +105,15 @@ abstract contract FlashLoanProvider is ReentrancyGuard {
         uint256 amount,
         bytes calldata params
     ) external nonReentrant {
-        if (amount == 0)           revert FlashLoan__ZeroAmount();
+        if (amount == 0) revert FlashLoan__ZeroAmount();
         if (receiverAddress == address(0)) revert FlashLoan__ZeroReceiver();
 
         uint256 available = _getFlashLoanAvailable(asset);
         if (amount > available)
             revert FlashLoan__InsufficientLiquidity(asset, amount, available);
 
-        uint256 fee          = amount.percentMul(flashLoanFeeBps);
-        uint256 repayAmount  = amount + fee;
+        uint256 fee = amount.percentMul(flashLoanFeeBps);
+        uint256 repayAmount = amount + fee;
         uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
 
         // ── Transfer to receiver ───────────────────────────────────────────
@@ -109,14 +121,22 @@ abstract contract FlashLoanProvider is ReentrancyGuard {
 
         // ── Call receiver ──────────────────────────────────────────────────
         bool success = IFlashLoanReceiver(receiverAddress).executeOperation(
-            asset, amount, fee, msg.sender, params
+            asset,
+            amount,
+            fee,
+            msg.sender,
+            params
         );
         if (!success) revert FlashLoan__ReceiverReturnedFalse();
 
         // ── Verify repayment ───────────────────────────────────────────────
         uint256 balanceAfter = IERC20(asset).balanceOf(address(this));
         if (balanceAfter < balanceBefore + fee)
-            revert FlashLoan__RepaymentFailed(asset, balanceBefore + fee, balanceAfter);
+            revert FlashLoan__RepaymentFailed(
+                asset,
+                balanceBefore + fee,
+                balanceAfter
+            );
 
         // ── Distribute fee to depositors ───────────────────────────────────
         _onFlashLoanFeeCollected(asset, fee);
@@ -144,17 +164,25 @@ abstract contract FlashLoanProvider is ReentrancyGuard {
     /**
      * @notice Calculate the fee for a given flash loan amount.
      */
-    function flashFee(address /*asset*/, uint256 amount) external view returns (uint256) {
+    function flashFee(
+        address /*asset*/,
+        uint256 amount
+    ) external view returns (uint256) {
         return amount.percentMul(flashLoanFeeBps);
     }
 
     // ── Hooks to implement in LendingPool ─────────────────────────────────────
 
     /// @dev Returns available liquidity in pool for `asset`.
-    function _getFlashLoanAvailable(address asset) internal view virtual returns (uint256);
+    function _getFlashLoanAvailable(
+        address asset
+    ) internal view virtual returns (uint256);
 
     /// @dev Called after fee is confirmed. Subclass distributes it to depositors.
-    function _onFlashLoanFeeCollected(address asset, uint256 fee) internal virtual;
+    function _onFlashLoanFeeCollected(
+        address asset,
+        uint256 fee
+    ) internal virtual;
 
     /// @dev Subclass checks the caller has admin/governance rights.
     function _requireFlashLoanAdmin() internal view virtual;
