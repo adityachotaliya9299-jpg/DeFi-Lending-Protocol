@@ -5,7 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title  GovernanceTimelock
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice 48-hour timelock between governance proposals and execution.
  *
  * ─── Why a timelock? ─────────────────────────────────────────────────────────
@@ -40,17 +40,16 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  *   MAX_DELAY    = 30 days  (prevents locking proposals forever)
  */
 contract GovernanceTimelock is AccessControl {
-
     // ── Roles ─────────────────────────────────────────────────────────────────
 
-    bytes32 public constant PROPOSER_ROLE  = keccak256("PROPOSER_ROLE");
-    bytes32 public constant EXECUTOR_ROLE  = keccak256("EXECUTOR_ROLE");
+    bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
+    bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
     bytes32 public constant CANCELLER_ROLE = keccak256("CANCELLER_ROLE");
 
     // ── Constants ─────────────────────────────────────────────────────────────
 
-    uint256 public constant MIN_DELAY  = 24 hours;
-    uint256 public constant MAX_DELAY  = 30 days;
+    uint256 public constant MIN_DELAY = 24 hours;
+    uint256 public constant MAX_DELAY = 30 days;
 
     // ── Storage ───────────────────────────────────────────────────────────────
 
@@ -64,16 +63,16 @@ contract GovernanceTimelock is AccessControl {
     event CallScheduled(
         bytes32 indexed id,
         address indexed target,
-        uint256          value,
-        bytes            data,
-        bytes32          predecessor,
-        uint256          delay
+        uint256 value,
+        bytes data,
+        bytes32 predecessor,
+        uint256 delay
     );
     event CallExecuted(
         bytes32 indexed id,
         address indexed target,
-        uint256          value,
-        bytes            data
+        uint256 value,
+        bytes data
     );
     event CallCancelled(bytes32 indexed id);
     event MinDelayChanged(uint256 oldDelay, uint256 newDelay);
@@ -99,23 +98,28 @@ contract GovernanceTimelock is AccessControl {
      * @param delay_     Initial minimum delay in seconds.
      */
     constructor(
-        address   admin_,
+        address admin_,
         address[] memory proposers_,
         address[] memory executors_,
         address[] memory cancellers_,
-        uint256   delay_
+        uint256 delay_
     ) {
         if (admin_ == address(0)) revert Timelock__ZeroAddress();
-        if (delay_ < MIN_DELAY)  revert Timelock__DelayTooShort(delay_, MIN_DELAY);
-        if (delay_ > MAX_DELAY)  revert Timelock__DelayTooLong(delay_, MAX_DELAY);
+        if (delay_ < MIN_DELAY)
+            revert Timelock__DelayTooShort(delay_, MIN_DELAY);
+        if (delay_ > MAX_DELAY)
+            revert Timelock__DelayTooLong(delay_, MAX_DELAY);
 
         minDelay = delay_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
 
-        for (uint256 i; i < proposers_.length; ++i)  _grantRole(PROPOSER_ROLE,  proposers_[i]);
-        for (uint256 i; i < executors_.length; ++i)  _grantRole(EXECUTOR_ROLE,  executors_[i]);
-        for (uint256 i; i < cancellers_.length; ++i) _grantRole(CANCELLER_ROLE, cancellers_[i]);
+        for (uint256 i; i < proposers_.length; ++i)
+            _grantRole(PROPOSER_ROLE, proposers_[i]);
+        for (uint256 i; i < executors_.length; ++i)
+            _grantRole(EXECUTOR_ROLE, executors_[i]);
+        for (uint256 i; i < cancellers_.length; ++i)
+            _grantRole(CANCELLER_ROLE, cancellers_[i]);
     }
 
     // ── Core operations ───────────────────────────────────────────────────────
@@ -133,7 +137,7 @@ contract GovernanceTimelock is AccessControl {
     function schedule(
         address target,
         uint256 value,
-        bytes   calldata data,
+        bytes calldata data,
         bytes32 predecessor,
         bytes32 salt,
         uint256 delay
@@ -158,7 +162,7 @@ contract GovernanceTimelock is AccessControl {
     function execute(
         address target,
         uint256 value,
-        bytes   calldata data,
+        bytes calldata data,
         bytes32 predecessor,
         bytes32 salt
     ) external payable onlyRole(EXECUTOR_ROLE) {
@@ -196,8 +200,10 @@ contract GovernanceTimelock is AccessControl {
      */
     function updateDelay(uint256 newDelay) external {
         require(msg.sender == address(this), "only via timelock");
-        if (newDelay < MIN_DELAY) revert Timelock__DelayTooShort(newDelay, MIN_DELAY);
-        if (newDelay > MAX_DELAY) revert Timelock__DelayTooLong(newDelay, MAX_DELAY);
+        if (newDelay < MIN_DELAY)
+            revert Timelock__DelayTooShort(newDelay, MIN_DELAY);
+        if (newDelay > MAX_DELAY)
+            revert Timelock__DelayTooLong(newDelay, MAX_DELAY);
         emit MinDelayChanged(minDelay, newDelay);
         minDelay = newDelay;
     }
@@ -210,7 +216,7 @@ contract GovernanceTimelock is AccessControl {
     function hashOperation(
         address target,
         uint256 value,
-        bytes   calldata data,
+        bytes calldata data,
         bytes32 predecessor,
         bytes32 salt
     ) public pure returns (bytes32) {
