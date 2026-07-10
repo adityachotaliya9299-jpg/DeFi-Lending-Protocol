@@ -7,7 +7,7 @@ import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title StableDebtToken
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Stable-rate debt token — accrues interest at locked-in rate
  *
  * Key design:
@@ -165,12 +165,9 @@ contract StableDebtToken is ERC20, IStableDebtToken {
      * @notice Get actual debt (principal + accrued interest)
      * @dev Calculates on-the-fly: debt = principal * (1 + rate * dt)
      */
-   function balanceOf(address account)
-        public
-        view
-        override(ERC20, IERC20)
-        returns (uint256)
-    {
+    function balanceOf(
+        address account
+    ) public view override(ERC20, IERC20) returns (uint256) {
         uint256 principal = _principals[account];
         if (principal == 0) return 0;
 
@@ -187,7 +184,12 @@ contract StableDebtToken is ERC20, IStableDebtToken {
     /**
      * @notice Get total supply (sum of all principals)
      */
-    function totalSupply() public view override(ERC20, IERC20) returns (uint256) {
+    function totalSupply()
+        public
+        view
+        override(ERC20, IERC20)
+        returns (uint256)
+    {
         return _ownTotalSupply;
     }
 
@@ -195,32 +197,25 @@ contract StableDebtToken is ERC20, IStableDebtToken {
     //  Transfers Disabled
     // =========================================================================
 
-    function transfer(address, uint256)
-        public
-        pure
-        override(ERC20, IERC20)
-        returns (bool)
-    {
+    function transfer(
+        address,
+        uint256
+    ) public pure override(ERC20, IERC20) returns (bool) {
         revert("StableDebtToken__TransferDisabled");
     }
 
-    function transferFrom(address, address, uint256)
-        public
-        pure
-        override(ERC20, IERC20)
-        returns (bool)
-    {
+    function transferFrom(
+        address,
+        address,
+        uint256
+    ) public pure override(ERC20, IERC20) returns (bool) {
         revert("StableDebtToken__TransferDisabled");
     }
 
-   function approve(address, uint256)
-        public
-        pure
-        override(ERC20, IERC20)
-        returns (bool)
-    {
+    function approve(
+        address,
+        uint256
+    ) public pure override(ERC20, IERC20) returns (bool) {
         revert("StableDebtToken__ApprovalDisabled");
     }
-
-    
 }
