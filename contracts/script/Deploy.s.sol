@@ -2,18 +2,18 @@
 pragma solidity ^0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {CollateralManager}  from "../src/core/CollateralManager.sol";
-import {LendingPool}        from "../src/core/LendingPool.sol";
-import {LiquidationEngine}  from "../src/core/LiquidationEngine.sol";
-import {PriceOracle}        from "../src/oracle/PriceOracle.sol";
-import {InterestRateModel}  from "../src/interest/InterestRateModel.sol";
-import {ProtocolTreasury}   from "../src/treasury/ProtocolTreasury.sol";
-import {Governance}         from "../src/governance/Governance.sol";
+import {CollateralManager} from "../src/core/CollateralManager.sol";
+import {LendingPool} from "../src/core/LendingPool.sol";
+import {LiquidationEngine} from "../src/core/LiquidationEngine.sol";
+import {PriceOracle} from "../src/oracle/PriceOracle.sol";
+import {InterestRateModel} from "../src/interest/InterestRateModel.sol";
+import {ProtocolTreasury} from "../src/treasury/ProtocolTreasury.sol";
+import {Governance} from "../src/governance/Governance.sol";
 import {ICollateralManager} from "../src/interfaces/ICollateralManager.sol";
 
 /**
  * @title  Deploy
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Deploys and wires the full DeFi Lending Protocol.
  *
  * Usage — local Anvil:
@@ -34,19 +34,18 @@ import {ICollateralManager} from "../src/interfaces/ICollateralManager.sol";
  * with all deployed addresses — import this into the frontend .env.local.
  */
 contract Deploy is Script {
-
     // ── Deployment results — read by SetupAssets.s.sol ──────────────────────
-    CollateralManager  public cm;
-    PriceOracle        public oracle;
-    InterestRateModel  public irm;
-    ProtocolTreasury   public treasury;
-    LendingPool        public pool;
-    LiquidationEngine  public liquidationEngine;
-    Governance         public governance;
+    CollateralManager public cm;
+    PriceOracle public oracle;
+    InterestRateModel public irm;
+    ProtocolTreasury public treasury;
+    LendingPool public pool;
+    LiquidationEngine public liquidationEngine;
+    Governance public governance;
 
     function run() external {
         address deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-        uint256 pk       = vm.envUint("PRIVATE_KEY");
+        uint256 pk = vm.envUint("PRIVATE_KEY");
 
         console2.log("=== DeFi Lending Protocol Deployment ===");
         console2.log("Deployer:  ", deployer);
@@ -82,7 +81,10 @@ contract Deploy is Script {
         console2.log("LendingPool:       ", address(pool));
 
         // ── 6. Liquidation Engine ────────────────────────────────────────────
-        liquidationEngine = new LiquidationEngine(address(pool), address(oracle));
+        liquidationEngine = new LiquidationEngine(
+            address(pool),
+            address(oracle)
+        );
         console2.log("LiquidationEngine: ", address(liquidationEngine));
 
         // ── 7. Governance ────────────────────────────────────────────────────
@@ -107,12 +109,15 @@ contract Deploy is Script {
     function _writeAddresses() internal view {
         console2.log("");
         console2.log("=== Copy to frontend/.env.local ===");
-        console2.log("NEXT_PUBLIC_LENDING_POOL=",        address(pool));
-        console2.log("NEXT_PUBLIC_COLLATERAL_MANAGER=",  address(cm));
-        console2.log("NEXT_PUBLIC_PRICE_ORACLE=",        address(oracle));
+        console2.log("NEXT_PUBLIC_LENDING_POOL=", address(pool));
+        console2.log("NEXT_PUBLIC_COLLATERAL_MANAGER=", address(cm));
+        console2.log("NEXT_PUBLIC_PRICE_ORACLE=", address(oracle));
         console2.log("NEXT_PUBLIC_INTEREST_RATE_MODEL=", address(irm));
-        console2.log("NEXT_PUBLIC_TREASURY=",            address(treasury));
-        console2.log("NEXT_PUBLIC_LIQUIDATION_ENGINE=",  address(liquidationEngine));
-        console2.log("NEXT_PUBLIC_GOVERNANCE=",          address(governance));
+        console2.log("NEXT_PUBLIC_TREASURY=", address(treasury));
+        console2.log(
+            "NEXT_PUBLIC_LIQUIDATION_ENGINE=",
+            address(liquidationEngine)
+        );
+        console2.log("NEXT_PUBLIC_GOVERNANCE=", address(governance));
     }
 }
