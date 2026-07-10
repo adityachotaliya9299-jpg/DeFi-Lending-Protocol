@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import {Script, console2} from "forge-std/Script.sol";
 
 import {SecurityHardening} from "../src/security/SecurityHardening.sol";
-import {MulticallBatch}    from "../src/utils/MulticallBatch.sol";
+import {MulticallBatch} from "../src/utils/MulticallBatch.sol";
 
 /**
  * @title DeployPhase6
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Deploys Phase 6 contracts to Sepolia
  *
  * Run:
@@ -25,10 +25,9 @@ import {MulticallBatch}    from "../src/utils/MulticallBatch.sol";
  *   - GasBenchmark: test-only, not deployed
  */
 contract DeployPhase6 is Script {
-
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
-        address deployer    = vm.addr(deployerKey);
+        address deployer = vm.addr(deployerKey);
 
         console2.log("Deployer:", deployer);
         console2.log("Balance:", deployer.balance);
