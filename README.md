@@ -1,344 +1,350 @@
-# LendFi — Production-Grade DeFi Lending Protocol
-
 <div align="center">
 
-[![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?logo=solidity&logoColor=white)](https://soliditylang.org/)
-[![Tests](https://img.shields.io/badge/Tests-381%20passing-brightgreen?logo=checkmarx)](https://book.getfoundry.sh/)
-[![Network](https://img.shields.io/badge/Sepolia-10%20Verified-blue?logo=ethereum)](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
-[![The Graph](https://img.shields.io/badge/The%20Graph-Subgraph-6747ED)](https://thegraph.com/)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+# 🏦 LendFi Protocol
 
-**A full-stack DeFi lending protocol built from scratch.**  
-Inspired by Aave v2/v3 and MakerDAO. 10 contracts verified on Sepolia. 381 tests passing.
+### Production-Grade Full-Stack DeFi Lending Protocol
 
-[**Etherscan**](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) · [**Whitepaper**](docs/whitepaper.md) · [**Audit Report**](audit/AUDIT_REPORT.md)
+[![Tests](https://img.shields.io/badge/tests-670%20passing-brightgreen?style=for-the-badge&logo=checkmarx)](https://github.com/adityachotaliya9299-jpg/DeFi-Lending-Protocol)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?style=for-the-badge&logo=solidity)](https://soliditylang.org)
+[![Foundry](https://img.shields.io/badge/Foundry-tested-orange?style=for-the-badge)](https://getfoundry.sh)
+[![Network](https://img.shields.io/badge/Sepolia-deployed-627EEA?style=for-the-badge&logo=ethereum)](https://sepolia.etherscan.io)
+[![Audited](https://img.shields.io/badge/Audited-LFI--2026--01-blue?style=for-the-badge&logo=shieldsdotio)](./contracts/audit)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+
+**[Live App](https://lendfi-protocol.vercel.app/) · [Audit Report](./contracts/audit/LendFi_Audit_Report.pdf) · [Portfolio](https://adityachotaliya.vercel.app/)**
 
 </div>
 
 ---
 
-## What is LendFi?
+## What Is LendFi?
 
-LendFi is a non-custodial, permissionless lending protocol featuring:
+LendFi is a production-grade decentralised lending protocol built entirely from scratch — smart contracts, frontend, subgraph, liquidation bot, and formal security audit. Inspired by Aave v3 in architecture, every line of Solidity, every test, and every deployment script was written independently.
 
-| Feature                 | Description                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| **Supply & Borrow**     | WETH, USDC, LINK with real Chainlink + TWAP oracle                             |
-| **Two-Slope Interest**  | Kink model identical to Aave v2 (80% optimal utilization)                      |
-| **E-Mode**              | Up to 97% LTV for correlated assets (Aave v3-inspired)                         |
-| **Isolation Mode**      | Global debt ceilings for volatile collateral                                   |
-| **Flash Loans**         | Zero-collateral atomic borrowing (0.09% fee to depositors)                     |
-| **Credit Delegation**   | Lend your borrowing power to trusted addresses — no collateral transfer needed |
-| **pUSD Stablecoin**     | MakerDAO-style CDP — deposit WETH, mint pUSD                                   |
-| **Governance Timelock** | 48-hour delay on all parameter changes                                         |
-| **Emergency Pause**     | GUARDIAN_ROLE halts deposits/borrows; withdrawals always open                  |
-| **Liquidation Bot**     | Automated position monitoring script in `/bots`                                |
-| **Mainnet Fork Tests**  | 10 fork tests against real Chainlink feeds and Uniswap v3                      |
-| **Security Audit**      | Self-audit report with 13 findings in `/audit`                                 |
+The protocol lets users:
+
+- **Deposit** crypto assets (WETH, USDC, LINK) to earn yield
+- **Borrow** against collateral at variable or fixed (stable) rates
+- **Flash loan** from the pool at a 0.09% fee
+- **Leverage** positions up to 4x via single-transaction loop strategies
+- **Swap** variable-rate debt for fixed-rate via interest rate swaps
+- **Invest** in structured Senior/Junior yield tranches
+- **Use NFTs** as collateral (floor-price oracle based)
+- **Earn points** for protocol activity, redeemable via governance
+- **Vote** on risk parameters through on-chain governance
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Smart Contracts | Solidity 0.8.24, Foundry |
+| Standards | ERC-20, ERC-721, ERC-4626, ERC-2612 (Permit) |
+| Libraries | OpenZeppelin v5, WadRayMath, PercentageMath |
+| Oracles | Chainlink + custom N-source weighted median aggregator |
+| Frontend | Next.js 14, wagmi v2, viem, RainbowKit, Tailwind CSS |
+| Indexing | The Graph (subgraph) + Apollo Client |
+| Bot | TypeScript liquidation bot with multicall batching |
+| Deployment | Vercel (frontend), Sepolia testnet (contracts) |
+
+---
+
+## Protocol Stats
+
+| Metric | Value |
+|--------|-------|
+| Test suites | 39 |
+| Tests passing | **670 / 670** |
+| Source contracts (in-scope) | 45 files |
+| Deployed contracts (Sepolia) | 27 contracts |
+| Lines of Solidity | ~18,800 (source + tests) |
+| Security findings | 37 (0 Critical, 9 High, 12 Med, 10 Low, 6 Info) |
+| Audit reference | LFI-2026-01 |
 
 ---
 
 ## Architecture
 
 ```
-contracts/src/
-├── math/           WadRayMath.sol, PercentageMath.sol
-├── interfaces/     ILendingPool, IPriceOracle, ICollateralManager,
-│                   IInterestRateModel, IFlashLoanReceiver
-├── oracle/         PriceOracle.sol (Chainlink)
-│                   OracleWithTWAP.sol (Chainlink + Uniswap v3 TWAP fallback)
-├── interest/       InterestRateModel.sol (two-slope kink model)
-├── tokens/         LendingToken.sol (lToken, scaled balances — O(1) interest)
-├── core/           LendingPool.sol (~750 lines — main contract)
-│                   CollateralManager.sol, LiquidationEngine.sol
-│                   FlashLoanProvider.sol, CreditDelegation.sol ← unique
-├── treasury/       ProtocolTreasury.sol
-├── governance/     Governance.sol, GovernanceTimelock.sol (48h delay)
-├── stablecoin/     ProtocolStablecoin.sol (pUSD), StablecoinVault.sol (CDP)
-├── modes/          IsolationMode.sol, EfficiencyMode.sol
-└── mocks/          MockChainlinkFeed.sol, MockERC20.sol
-
-contracts/test/
-├── core/           LendingPool, CollateralManager, EdgeCases,
-│                   Invariants, MultiUser, CreditDelegation
-├── fork/           ForkTest.t.sol — mainnet fork tests (real Chainlink + Uniswap)
-├── governance/     Governance, GovernanceTimelock
-├── flashloan/      FlashLoan
-├── interest/       InterestRateModel
-├── math/           WadRayMath, PercentageMath
-├── modes/          Modes (E-Mode + Isolation)
-├── oracle/         PriceOracle
-├── stablecoin/     StablecoinVault
-├── tokens/         LendingToken
-└── treasury/       ProtocolTreasury
-
-contracts/script/
-├── Deploy.s.sol                 — deploys all 7 core contracts
-├── SetupAssets.s.sol            — configures WETH/USDC/LINK
-├── DeployStablecoin.s.sol       — deploys pUSD + StablecoinVault + Timelock
-└── DeployCreditDelegation.s.sol — deploys CreditDelegation contract
-
-frontend/src/
-├── app/            10 pages: /, /dashboard, /vault, /modes, /risk,
-│                   /analytics, /flashloan, /liquidate, /delegation, /portfolio
-├── components/     Navbar (More dropdown), Toast, Tooltip, PauseBanner,
-│                   WrongNetwork, HealthFactorBar, StatCard, ClientBanners
-├── hooks/          useProtocolData (unified multicall), useTx (tx lifecycle),
-│                   useSubgraphPositions, useProtocol, useScrollAnimation
-├── constants/      abis.ts (LENDING_POOL + EXTENDED + CREDIT_DELEGATION),
-│                   addresses.ts, assets.ts
-└── lib/            format.ts, graphql.ts (Apollo + 8 named queries)
-
-subgraph/           The Graph — 11 entities, deployed to Subgraph Studio
-bots/               liquidation-bot.ts — automated position monitoring
-audit/              AUDIT_REPORT.md — 13 findings, 14 attack vectors tested
-docs/               whitepaper.md — 10 sections of protocol design documentation
+User
+ │
+ ├── deposit / borrow / repay / withdraw / liquidate
+ │         ↓
+ │    LendingPool.sol  ← core state machine
+ │         │
+ │    ┌────┴────────────────────────────────┐
+ │    │                                     │
+ │  CollateralManager         InterestRateModel
+ │  (LTV, liquidation          (two-slope kinked
+ │   threshold, caps)           utilization curve)
+ │    │                                     │
+ │  PriceOracle ─── OracleAggregator       │
+ │  (Chainlink)    (N-source weighted       │
+ │                  median, anti-manip)     │
+ │    │                                     │
+ │  Tokens                             Governance
+ │  ├── LendingToken (lToken)          ├── Governance.sol
+ │  ├── VariableDebtToken              ├── GovernanceTimelock
+ │  └── StableDebtToken                └── RiskGovernance
+ │
+ └── Phase 4-6 Extensions
+     ├── YieldVault (ERC-4626)
+     ├── LoopStrategy (leverage)
+     ├── IRSwap (rate swap)
+     ├── TrancheVault (senior/junior)
+     ├── NFTCollateralManager
+     ├── CrossChainMessenger (LayerZero)
+     ├── OracleAggregator
+     ├── PointsAccounting
+     ├── RevenueDistributor
+     ├── SecurityHardening
+     └── MulticallBatch
 ```
 
 ---
 
-## Deployed Contracts — Sepolia Testnet
+## Development Phases
 
-| Contract                  | Address                                      | Etherscan                                                                               |
-| ------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| LendingPool               | `0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0` | [View](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) |
-| CollateralManager         | `0x2BA6Be87c33acec211B16163997f66aecf73F467` | [View](https://sepolia.etherscan.io/address/0x2BA6Be87c33acec211B16163997f66aecf73F467) |
-| PriceOracle               | `0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc` | [View](https://sepolia.etherscan.io/address/0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc) |
-| InterestRateModel         | `0x4924f29EDBa2B85dC098E67c1762696456a8b94A` | [View](https://sepolia.etherscan.io/address/0x4924f29EDBa2B85dC098E67c1762696456a8b94A) |
-| LiquidationEngine         | `0x6796313464047CeDcCd4a465A3568F93b38C4c9d` | [View](https://sepolia.etherscan.io/address/0x6796313464047CeDcCd4a465A3568F93b38C4c9d) |
-| Governance                | `0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc` | [View](https://sepolia.etherscan.io/address/0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc) |
-| ProtocolTreasury          | `0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3` | [View](https://sepolia.etherscan.io/address/0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3) |
-| ProtocolStablecoin (pUSD) | `0x233831a3E0Eb8E76570996bA8889C84C59d49D7E` | [View](https://sepolia.etherscan.io/address/0x233831a3E0Eb8E76570996bA8889C84C59d49D7E) |
-| StablecoinVault           | `0x1155Ed037e879DD359097ccC9F15821dA1a712ef` | [View](https://sepolia.etherscan.io/address/0x1155Ed037e879DD359097ccC9F15821dA1a712ef) |
-| GovernanceTimelock        | `0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28` | [View](https://sepolia.etherscan.io/address/0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28) |
+### ✅ Phase 1 — Core Security Hardening
+> Supply/borrow caps per asset · ERC-2612 permit gasless approvals · receiveAToken in liquidations
 
-**Sepolia test assets:** WETH `0xdd13E55...`, USDC `0x94a9D9...`, LINK `0x779877...`
+### ✅ Phase 2 — Debt Token Architecture
+> VariableDebtToken (non-transferable ERC-20) · scaled balance accounting · credit delegation
+
+### ✅ Phase 3 — Advanced Protocol Features
+> StableDebtToken (fixed-rate mode) · OracleAggregator (N-source weighted median) · PointsAccounting · BadDebtSocialisation · ReserveInterestRateStrategy (Aave v3-compatible)
+
+### ✅ Phase 4 — Cross-Chain & Yield Infrastructure
+> CrossChainMessenger (LayerZero-compatible) · YieldVault (ERC-4626) · LoopStrategy (1-tx leverage) · RiskGovernance (token-weighted voting) · RevenueDistributor (epoch-based splits)
+
+### ✅ Phase 5 — Derivatives & Advanced DeFi
+> IRSwap (cash-settled rate swap) · TrancheVault (Senior/Junior yield structure) · LiquidationPathFinder (multi-collateral optimizer) · NFTCollateralManager (ERC-721 collateral)
+
+### ✅ Phase 6 — Production Hardening
+> GasBenchmarks · SecurityHardening (per-asset pause, commit-reveal, rate limits) · MulticallBatch (batch calls in one tx)
+
+### ✅ Security Audit — LFI-2026-01
+> Manual review of 45 contracts · 39 findings · 6 PoC exploits · Remediation verified · Full PDF report
 
 ---
 
-## Test Suite — 381 Tests (100% Passing)
+## Deployed Contracts (Sepolia)
 
-```bash
-cd contracts
-forge test                              # all 381 tests
-forge test -vvv                         # verbose output
-forge coverage --ir-minimum             # coverage report
+### Phase 1-2 — Core Protocol
 
-# Mainnet fork tests (requires Alchemy key)
-export MAINNET_RPC=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
-forge test --fork-url $MAINNET_RPC --match-path "test/fork/*" -vvv
+| Contract | Address |
+|----------|---------|
+| LendingPool | [`0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0`](https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0) |
+| CollateralManager | [`0x2BA6Be87c33acec211B16163997f66aecf73F467`](https://sepolia.etherscan.io/address/0x2BA6Be87c33acec211B16163997f66aecf73F467) |
+| PriceOracle | [`0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc`](https://sepolia.etherscan.io/address/0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc) |
+| InterestRateModel | [`0x4924f29EDBa2B85dC098E67c1762696456a8b94A`](https://sepolia.etherscan.io/address/0x4924f29EDBa2B85dC098E67c1762696456a8b94A) |
+| LiquidationEngine | [`0x6796313464047CeDcCd4a465A3568F93b38C4c9d`](https://sepolia.etherscan.io/address/0x6796313464047CeDcCd4a465A3568F93b38C4c9d) |
+| Governance | [`0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc`](https://sepolia.etherscan.io/address/0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc) |
+| GovernanceTimelock | [`0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28`](https://sepolia.etherscan.io/address/0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28) |
+| ProtocolTreasury | [`0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3`](https://sepolia.etherscan.io/address/0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3) |
+| ProtocolStablecoin (pUSD) | [`0x233831a3E0Eb8E76570996bA8889C84C59d49D7E`](https://sepolia.etherscan.io/address/0x233831a3E0Eb8E76570996bA8889C84C59d49D7E) |
+| StablecoinVault | [`0x1155Ed037e879DD359097ccC9F15821dA1a712ef`](https://sepolia.etherscan.io/address/0x1155Ed037e879DD359097ccC9F15821dA1a712ef) |
+
+### Phase 3 — Advanced Features
+
+| Contract | Address |
+|----------|---------|
+| OracleAggregator | [`0x15385976e93e63daAeC2de92eF838Fde64Cb9b4D`](https://sepolia.etherscan.io/address/0x15385976e93e63daAeC2de92eF838Fde64Cb9b4D) |
+| PointsAccounting | [`0x0B198a88139ef4FbC92d26C50317a87DAE0ffb1C`](https://sepolia.etherscan.io/address/0x0B198a88139ef4FbC92d26C50317a87DAE0ffb1C) |
+| BadDebtSocialisation | [`0xc503366ACB1774C22ea0507eFFDb3B9F9461039d`](https://sepolia.etherscan.io/address/0xc503366ACB1774C22ea0507eFFDb3B9F9461039d) |
+| ReserveInterestRateStrategy | [`0x847172E460e8651069169395ec0d1c795A09275b`](https://sepolia.etherscan.io/address/0x847172E460e8651069169395ec0d1c795A09275b) |
+
+### Phase 4 — Cross-Chain & Yield
+
+| Contract | Address |
+|----------|---------|
+| CrossChainMessenger | [`0x8219AEBbA5E88D02abbfbE4A28442bDBbF2e65d7`](https://sepolia.etherscan.io/address/0x8219AEBbA5E88D02abbfbE4A28442bDBbF2e65d7) |
+| YieldVault (USDC) | [`0x9f9E08aC42C9BA5fb550eB86786fDa154beA87De`](https://sepolia.etherscan.io/address/0x9f9E08aC42C9BA5fb550eB86786fDa154beA87De) |
+| LoopStrategy | [`0x53D9d6E45202FD91218DFb24bd437F84E6e9f414`](https://sepolia.etherscan.io/address/0x53D9d6E45202FD91218DFb24bd437F84E6e9f414) |
+| RiskGovernance | [`0xdF5B53a39743822F0E8C730c0e51a7d06164f047`](https://sepolia.etherscan.io/address/0xdF5B53a39743822F0E8C730c0e51a7d06164f047) |
+| RevenueDistributor | [`0xf81b5f8005EBa6D1681F38ecA6Df60A33987d50a`](https://sepolia.etherscan.io/address/0xf81b5f8005EBa6D1681F38ecA6Df60A33987d50a) |
+
+### Phase 5 — Derivatives & Advanced DeFi
+
+| Contract | Address |
+|----------|---------|
+| IRSwap | [`0x98152bCae8df521F822cFdb2E3434B216D1ddea9`](https://sepolia.etherscan.io/address/0x98152bCae8df521F822cFdb2E3434B216D1ddea9) |
+| TrancheVault | [`0xD940d380D319Bf37E10E3ad62ba4fA4CdCC760a6`](https://sepolia.etherscan.io/address/0xD940d380D319Bf37E10E3ad62ba4fA4CdCC760a6) |
+| LiquidationPathFinder | [`0x92fDa378C1bD05e7399e378ba4B661980767F567`](https://sepolia.etherscan.io/address/0x92fDa378C1bD05e7399e378ba4B661980767F567) |
+| NFTCollateralManager | [`0x9813D0F52Afd25A6BC0851644B5342817d7cec2A`](https://sepolia.etherscan.io/address/0x9813D0F52Afd25A6BC0851644B5342817d7cec2A) |
+
+### Phase 6 — Production Hardening
+
+| Contract | Address |
+|----------|---------|
+| SecurityHardening | [`0x001Aa6dd462DDeC1fc63D91cca056ff5852185AD`](https://sepolia.etherscan.io/address/0x001Aa6dd462DDeC1fc63D91cca056ff5852185AD) |
+| MulticallBatch | [`0x8eC6d026a9EE09c701121F0A5D3a8768c753A117`](https://sepolia.etherscan.io/address/0x8eC6d026a9EE09c701121F0A5D3a8768c753A117) |
+
+### Sepolia Test Assets
+
+| Asset | Address |
+|-------|---------|
+| WETH | `0xdd13E55209Fd76AfE204dBda4007C227904f0a81` |
+| USDC | `0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8` |
+| LINK | `0x779877A7B0D9E8603169DdbD7836e478b4624789` |
+
+---
+
+## Security Audit
+
+The protocol underwent a full internal security audit (LFI-2026-01) covering all 45 in-scope contracts at commit [`1374d96`](https://github.com/adityachotaliya9299-jpg/DeFi-Lending-Protocol/commit/1374d96).
+
+### Findings Summary
+
+| Severity | Count | Resolved |
+|----------|-------|---------|
+| Critical | 0 | — |
+| High | 9 | 7 fixed, 2 partial |
+| Medium | 12 | 11 fixed, 1 partial |
+| Low | 10 | Advisory |
+| Informational | 6 | Advisory |
+| **Total** | **37** | |
+
+### Key High Findings (Fixed)
+
+| ID | Finding | Status |
+|----|---------|--------|
+| H-01/02 | Supply cap validation applied to borrow/repay/withdraw — DoS | ✅ Fixed |
+| H-03 | E-Mode health factor uses RAY instead of WAD — liquidation bypass | ✅ Fixed |
+| H-04 | StableDebt `_accrueInterest()` no-op — interest lost on multi-mint | ✅ Fixed |
+| H-05 | Governance quorum bypass with zero token supply | ⚠️ Partial |
+| H-06 | TrancheVault senior cap skipped on first deposit | ✅ Fixed |
+| H-07 | NFT `liquidate()` never pulls debt from liquidator | ✅ Fixed |
+| H-08 | LoopStrategy 1:1 price assumption breaks cross-asset positions | ⚠️ Partial |
+
+### Audit Deliverables
+
+```
+contracts/audit/
+├── LendFi_Audit_Report.pdf      ← Full 9-section PDF report
+├── Findings.xlsx                ← 37 findings spreadsheet
+├── Remediation_Report.md        ← Post-fix verification
+├── POCs/
+│   ├── Exploit_H01_SupplyCapDoS.t.sol
+│   ├── Exploit_H03_EModeHFBypass.t.sol
+│   ├── Exploit_H04_StableDebtInterestLoss.t.sol
+│   ├── Exploit_H05_GovernanceQuorumBypass.t.sol
+│   ├── Exploit_H06_TrancheVaultSeniorCapBypass.t.sol
+│   └── Exploit_H07_NFTLiquidationFreeLoot.t.sol
+├── SCOPE.md
+├── METHODOLOGY.md
+├── THREAT_MODEL.md
+└── PRIVILEGE_MAP.md
 ```
 
-| Suite                    | Tests   | What It Covers                                   |
-| ------------------------ | ------- | ------------------------------------------------ |
-| LendingPool.t.sol        | 35      | deposit/borrow/repay/withdraw/liquidate flows    |
-| CollateralManager.t.sol  | 23      | config validation, HF calculation, fuzz          |
-| EdgeCases.t.sol          | 28      | oracle failures, 99% utilization, price crash    |
-| Invariants.t.sol         | 15      | 10 math invariants + fuzz properties             |
-| MultiUser.t.sol          | 11      | 5-user simulations, cascade liquidations         |
-| CreditDelegation.t.sol   | 17      | approve/borrow/repay/expiry/revoke + fuzz        |
-| FlashLoan.t.sol          | 12      | fee, repayment, failure cases                    |
-| **ForkTest.t.sol**       | **10**  | **Real Chainlink prices, real Uniswap v3 swaps** |
-| GovernanceTimelock.t.sol | 16      | schedule/execute/cancel/predecessor chaining     |
-| Governance.t.sol         | 16      | config updates, rate parameter changes           |
-| InterestRateModel.t.sol  | 28      | two-slope kink, monotonicity, boundary           |
-| PriceOracle.t.sol        | 29      | staleness, negative price, WAD normalisation     |
-| StablecoinVault.t.sol    | 19      | CDP mint/burn, liquidation, stability fee        |
-| LendingToken.t.sol       | 30      | scaled balance, interest accrual                 |
-| WadRayMath.t.sol         | 30      | fixed-point arithmetic + fuzz roundtrips         |
-| PercentageMath.t.sol     | 28      | BPS arithmetic                                   |
-| Modes.t.sol              | 18      | E-Mode eligibility, LTV override, isolation      |
-| ProtocolTreasury.t.sol   | 16      | withdraw, access control, events                 |
-| **Total**                | **381** | **100% passing**                                 |
-
 ---
 
-## Credit Delegation — The Unique Differentiator
-
-Standard DeFi requires collateral ≥ debt. Credit Delegation breaks this:
-
-```solidity
-// Alice has 10 WETH deposited → $8,000 borrowing power at 80% LTV
-// Alice delegates $5,000 USDC credit to Bob
-
-alice.approveDelegation(
-    bob,           // delegatee
-    USDC,          // asset
-    5000e18,       // max amount (WAD)
-    expiry         // optional expiry timestamp
-);
-
-// Bob borrows $5,000 USDC with ZERO collateral of his own
-bob.borrowWithDelegation(alice, USDC, 5000e18);
-// Alice's WETH backs Bob's position
-// Alice's health factor drops
-// Bob must repay or Alice faces liquidation
-```
-
-**Use cases in production (Aave uses this):**
-
-- Market makers needing USDC inventory without locking capital
-- Protocol-to-protocol credit lines
-- Yield strategy vaults that borrow and farm yield
-
----
-
-## Interest Rate Model
+## Repository Structure
 
 ```
-Borrow Rate
-    │                                       ╱ Slope 2 (75% APR)
-    │                      ───────────────╱
-    │                     ╱ Slope 1 (4%)
-    │────────────────────
-    └────────────────────┬──────────────── Utilization
-                        80% (kink)
-
-supplyRate = borrowRate × utilization × (1 − reserveFactor)
-```
-
-- Rates stored in **RAY (1e27)** for continuous per-second compounding — prevents rounding to zero
-- `newIndex = oldIndex × (1 + ratePerSecond × Δt)` — same as Aave v2
-
----
-
-## Oracle Security — Dual Source
-
-```
-getPrice(asset):
-  1. Try Chainlink (primary)
-     - Staleness check: block.timestamp - updatedAt ≤ heartbeat
-     - Negative/zero guard
-     - Incomplete round guard (answeredInRound < roundId)
-
-  2. Try Uniswap v3 TWAP (fallback — 30 min window)
-
-  3. If both valid AND deviation > 10% → use the LOWER price
-     → Flash loan attacks can't pump both sources simultaneously
-
-  4. If Chainlink fails → use TWAP
-  5. If both fail → revert (safe failure mode)
+DeFi-Lending-Protocol/
+├── contracts/
+│   ├── src/
+│   │   ├── core/           LendingPool, CollateralManager, LiquidationEngine,
+│   │   │                   FlashLoanProvider, BadDebtSocialisation, CreditDelegation
+│   │   ├── tokens/         LendingToken, VariableDebtToken, StableDebtToken
+│   │   ├── oracle/         PriceOracle, OracleAggregator, OracleWithTWAP
+│   │   ├── governance/     Governance, GovernanceTimelock, RiskGovernance
+│   │   ├── interest/       InterestRateModel, ReserveInterestRateStrategy
+│   │   ├── stablecoin/     ProtocolStablecoin, StablecoinVault
+│   │   ├── derivatives/    IRSwap
+│   │   ├── tranches/       TrancheVault
+│   │   ├── nft/            NFTCollateralManager
+│   │   ├── leverage/       LoopStrategy
+│   │   ├── crosschain/     CrossChainMessenger
+│   │   ├── vault/          YieldVault
+│   │   ├── revenue/        RevenueDistributor
+│   │   ├── points/         PointsAccounting
+│   │   ├── security/       SecurityHardening
+│   │   ├── liquidation/    LiquidationPathFinder
+│   │   ├── treasury/       ProtocolTreasury
+│   │   ├── utils/          MulticallBatch
+│   │   ├── math/           WadRayMath, PercentageMath
+│   │   ├── modes/          IsolationMode, EfficiencyMode
+│   │   └── interfaces/     10 interface files
+│   ├── test/               39 test suites (670 tests)
+│   ├── script/             Deployment scripts
+│   └── audit/              Security audit deliverables
+└── frontend/               Next.js 14 application
 ```
 
 ---
 
-## Governance Timelock — Attack Prevention
-
-Without a timelock, a compromised admin key can drain the pool in one block:
-
-1. `setLTV(WETH, 9900)` — allow 99% LTV
-2. Deposit 1 WETH as attacker
-3. `borrow(USDC, entirePoolBalance)`
-
-With **GovernanceTimelock (48h delay)**, users see the malicious proposal on-chain and have 48 hours to withdraw before execution. `CANCELLER_ROLE` can veto at any point.
-
----
-
-## Mainnet Fork Tests
-
-Tests run against **real mainnet state** via Alchemy — not mocks:
-
-```bash
-export MAINNET_RPC=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
-forge test --fork-url $MAINNET_RPC --match-path "test/fork/*" -vvv
-```
-
-| Test                                         | What It Proves                                      |
-| -------------------------------------------- | --------------------------------------------------- |
-| `test_fork_chainlink_eth_price_is_realistic` | Live ETH feed returns $500–$20K, fresh < 2h         |
-| `test_fork_chainlink_usdc_price_near_peg`    | USDC is $0.97–$1.03 at fork time                    |
-| `test_fork_price_wad_normalisation`          | Our ×1e10 scaling is correct on real 8-decimal feed |
-| `test_fork_swap_eth_for_usdc_on_uniswap`     | Real Uniswap v3 swap — implied price > $500/ETH     |
-| `test_fork_full_protocol_with_real_prices`   | Full protocol lifecycle at today's real ETH price   |
-| `test_fork_liquidation_at_real_prices`       | 20% price drop triggers liquidation from 79% LTV    |
-| `test_fork_flash_loan_fee_vs_uniswap`        | Our 0.09% fee is $90 on $100K — competitive         |
-
----
-
-## Liquidation Bot
-
-```bash
-cd bots
-npm install
-cp .env.example .env   # set SEPOLIA_RPC_URL + optional BOT_PRIVATE_KEY
-npx ts-node liquidation-bot.ts
-```
-
-Runs in **simulation mode** by default (logs what it would do — safe to run without a key).
-
-Every 15 seconds:
-
-1. Queries The Graph for all active borrowers
-2. Batch multicalls `getUserAccountData` for all positions (1 RPC call)
-3. HF < 1.05 → watch list
-4. HF < 1.0 → build opportunity → check profit → execute `liquidate()`
-
----
-
-## Security
-
-| Measure                   | Coverage                                                      |
-| ------------------------- | ------------------------------------------------------------- |
-| `ReentrancyGuard`         | All external state-mutating functions                         |
-| CEI Pattern               | Check → Effects → Interactions throughout                     |
-| Chainlink heartbeat       | ETH: 3600s, USDC: 86400s — stale prices revert                |
-| TWAP fallback             | Uniswap v3 30-min TWAP when Chainlink unavailable             |
-| Deviation check           | > 10% divergence → use lower (conservative) price             |
-| 50% Close Factor          | Prevents single-call full liquidation                         |
-| Health Factor enforcement | Before every borrow and withdrawal                            |
-| Isolation Mode            | Global debt ceiling per volatile asset                        |
-| Governance Timelock       | 48h delay — users can exit before changes execute             |
-| Emergency Pause           | GUARDIAN_ROLE halts deposits/borrows; withdrawals always open |
-| GUARDIAN_ROLE             | Separate from POOL_ADMIN — separation of duties               |
-
-**Self-Audit:** See [`audit/AUDIT_REPORT.md`](audit/AUDIT_REPORT.md) — 13 findings (0 critical, 0 high, 3 medium, 4 low, 6 informational), 14 attack vectors tested, 10 invariants verified.
-
----
-
-## Frontend — 10 Pages
-
-| Route         | Description                                                    |
-| ------------- | -------------------------------------------------------------- |
-| `/`           | Live market cards — real TVL, APY, utilization from chain      |
-| `/dashboard`  | Supply/Borrow/Repay/Withdraw with full `useTx` toast lifecycle |
-| `/vault`      | pUSD CDP — live ratio display, Open/Manage/Close tabs          |
-| `/modes`      | E-Mode category selector + Isolation Mode debt ceiling         |
-| `/risk`       | Protocol Risk Monitor — utilization hero number, trust badges  |
-| `/analytics`  | 5 recharts charts — live subgraph or simulated fallback        |
-| `/flashloan`  | Zero-collateral docs + copy-able arbitrage/liquidation code    |
-| `/liquidate`  | Live address search → real HF from chain → execute liquidation |
-| `/delegation` | Grant delegation, borrow with credit, health factor impact     |
-| `/portfolio`  | Position overview + full transaction history from subgraph     |
-
-**Key frontend architecture:**
-
-- `useProtocolData` — single batched multicall, all pages share one QueryClient cache
-- `useTx` — waiting → submitted (Etherscan link) → confirmed (block) → failed (decoded error)
-- `useSubgraphPositions` — full transaction history from The Graph
-- `Toast.tsx` — global pub/sub notification system, no external library
-- `PauseBanner` — shows to all users when `paused() = true`, guardian-only unpause button
-- `WrongNetworkBanner` — red banner + "Switch to Sepolia" button on wrong chain
-
----
-
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- Node.js 18+
+```bash
+# Install Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
 
-### Contracts
+### Clone & Build
 
 ```bash
-git clone https://github.com/adityachotaliya9299-jpg/DeFi-Lending-Protocol
+git clone https://github.com/adityachotaliya9299-jpg/DeFi-Lending-Protocol.git
 cd DeFi-Lending-Protocol/contracts
-
 forge install
 forge build
+```
+
+### Run Tests
+
+```bash
+# Full test suite (670 tests)
 forge test
+
+# With gas report
+forge test --gas-report
+
+# Specific suite
+forge test --match-path "test/core/LendingPool.t.sol" -vv
+
+# Coverage
 forge coverage --ir-minimum
+
+# Fork tests (requires Sepolia RPC)
+forge test --match-path "test/fork/ForkTest.t.sol" \
+  --fork-url $SEPOLIA_RPC_URL -vv
+
+# PoC exploits
+forge test --match-path "audit/POCs/*" -vv
+```
+
+### Environment Setup
+
+Create `contracts/.env`:
+
+```env
+SEPOLIA_RPC_URL=https://...
+PRIVATE_KEY=0x...
+ETHERSCAN_API_KEY=...
+MAINNET_RPC=https://...
+```
+
+### Deploy
+
+```bash
+# Phase 1-2 (core protocol — already deployed)
+# forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL \
+#   --private-key $PRIVATE_KEY --broadcast --verify -vvvv
+
+# Phase 3-5
+forge script script/DeployPhase4And5.s.sol \
+  --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY \
+  --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv
+
+# Phase 6
+forge script script/DeployPhase6.s.sol \
+  --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY \
+  --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY -vvvv
 ```
 
 ### Frontend
@@ -346,111 +352,76 @@ forge coverage --ir-minimum
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local
-# Fill in your values (see Environment Variables below)
-npm run build
-npm start
-```
 
-### Environment Variables
+# Set environment variables in frontend/.env.local
+# (see contracts/audit/README.md for full .env.local block)
 
-```env
-# frontend/.env.local
-
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=99d0f6e45d84da0c3341e8ba35298dd1
-
-# Core contracts (Sepolia — already deployed)
-NEXT_PUBLIC_LENDING_POOL=0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0
-NEXT_PUBLIC_COLLATERAL_MANAGER=0x2BA6Be87c33acec211B16163997f66aecf73F467
-NEXT_PUBLIC_PRICE_ORACLE=0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc
-NEXT_PUBLIC_WETH=0xdd13E55209Fd76AfE204dBda4007C227904f0a81
-NEXT_PUBLIC_USDC=0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8
-NEXT_PUBLIC_LINK=0x779877A7B0D9E8603169DdbD7836e478b4624789
-
-# Stablecoin system
-NEXT_PUBLIC_PUSD_ADDRESS=0x233831a3E0Eb8E76570996bA8889C84C59d49D7E
-NEXT_PUBLIC_STABLECOIN_VAULT=0x1155Ed037e879DD359097ccC9F15821dA1a712ef
-NEXT_PUBLIC_GOVERNANCE_TIMELOCK=0x6809Df5b59ca7bb2fcC60D19851E748A9C1d5F28
-
-# Credit Delegation (deploy via DeployCreditDelegation.s.sol)
-NEXT_PUBLIC_CREDIT_DELEGATION=0x9d038E6ecD79b9eE734E5c41477a954b7650cb58
-
-# Optional — enables live analytics charts from The Graph
-NEXT_PUBLIC_SUBGRAPH_URL=https://api.studio.thegraph.com/query/4f8dd4ddbc0f6afeb97a9bbe581501f2/defi-lending-protocol/version/latest
-```
-
-### Deploy to Sepolia
-
-```bash
-cd contracts
-source .env
-
-# 1. Core protocol
-forge script script/Deploy.s.sol \
-  --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY \
-  --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY
-
-# 2. Configure assets
-forge script script/SetupAssets.s.sol \
-  --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY --broadcast
-
-# 3. pUSD stablecoin + timelock
-forge script script/DeployStablecoin.s.sol \
-  --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY \
-  --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY
-
-# 4. Credit delegation
-forge script script/DeployCreditDelegation.s.sol \
-  --rpc-url $SEPOLIA_RPC_URL --private-key $PRIVATE_KEY \
-  --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY
+npm run build && npm start
 ```
 
 ---
 
-## Tech Stack
+## Frontend Pages
 
-| Layer           | Technology                                        |
-| --------------- | ------------------------------------------------- |
-| Smart Contracts | Solidity 0.8.24, Foundry                          |
-| Oracle          | Chainlink AggregatorV3Interface + Uniswap v3 TWAP |
-| Frontend        | Next.js 14, TypeScript, Tailwind CSS              |
-| Web3            | wagmi v2, viem                                    |
-| Wallet          | RainbowKit                                        |
-| Charts          | recharts                                          |
-| Indexer         | The Graph (GraphQL), Apollo Client                |
-| Bots            | viem v2, TypeScript, ts-node                      |
-| Fonts           | Syne + DM Mono + DM Sans                          |
-| Network         | Sepolia testnet                                   |
-
----
-
-## Project Stats
-
-| Metric                        | Value                            |
-| ----------------------------- | -------------------------------- |
-| Smart contract source files   | 26                               |
-| Test suites                   | 18                               |
-| Total tests                   | **381 (100% passing)**           |
-| Deployed + verified contracts | 10                               |
-| Frontend pages                | 10                               |
-| TypeScript files              | ~36                              |
-| Lines of Solidity             | ~4,200 (source) + ~3,500 (tests) |
-| Lines of TypeScript           | ~6,000 (frontend + bots)         |
-| Subgraph entities             | 11                               |
-| Audit findings                | 13 (0 critical, 0 high)          |
+| Route | Feature |
+|-------|---------|
+| `/` | Dashboard — portfolio overview, health factor, positions |
+| `/markets` | All assets — supply/borrow rates, utilization |
+| `/vault` | StablecoinVault — mint/redeem pUSD |
+| `/flashloan` | Flash loan interface |
+| `/liquidate` | Liquidation scanner and executor |
+| `/analytics` | Protocol analytics — TVL, volume, rates |
+| `/portfolio` | User positions, debt, collateral |
+| `/delegation` | Credit delegation management |
+| `/governance` | Governance proposals and voting |
+| `/risk` | Risk parameter dashboard |
 
 ---
 
-## License
+## Key Design Decisions
 
-MIT — see [LICENSE](LICENSE)
+**Scaled balance accounting** — every deposit and borrow is stored as a scaled amount (actual / index). This means interest accrues automatically without touching individual user positions — the index does all the work.
+
+**Dual source of truth** — `_scaledBorrows` is the canonical debt record used for health factor calculations. VariableDebtToken and StableDebtToken are ERC-20 view layers for wallet compatibility and credit delegation — they are never used for internal math.
+
+**Single-entry nonReentrant** — all state-changing LendingPool functions are individually guarded. Callbacks (flash loans, ERC-721 receiver) are handled after state updates (CEI pattern throughout).
+
+**Mode-based borrowing** — `borrow(asset, amount, mode)` with mode=1 for variable rate and mode=2 for stable rate. Each mode has an independent debt token; both count toward the health factor.
+
+**Weighted median oracle** — OracleAggregator supports up to 5 Chainlink feeds per asset with configurable weights. Stale, reverting, and negative feeds are automatically excluded. Requires MIN_VALID_FEEDS=2 to return a price.
+
+---
+
+## Lessons Learned
+
+Building a protocol at this scale revealed several non-obvious Solidity patterns:
+
+- `NEXT_PUBLIC_` env vars are embedded at **build time** — `npm run build && npm start`, never `npm run dev` for production config
+- `forge coverage` requires `--ir-minimum` for large contracts (stack too deep otherwise)
+- OpenZeppelin v5 makes `_balances` and `_totalSupply` **private**, not protected — custom debt tokens need their own tracking
+- When inheriting `ERC20` + a custom interface extending `IERC20`, override lists must include `(ERC20, IERC20)` explicitly
+- Solidity rejects compile-time float division constants — `0.04e27 / (365 days)` must be pre-computed
+- Supply cap checks copy-pasted into borrow/repay/withdraw — a semantic error that became the most impactful audit finding
+
+---
+
+## Audit
+
+Full security audit completed July 2026 — see [`contracts/audit/`](./contracts/audit/) for all deliverables including the PDF report, PoC exploits, and remediation verification.
+
+---
+
+## Author
+
+**Aditya Chotaliya**
+
+- Portfolio: [adityachotaliya.vercel.app](https://adityachotaliya.vercel.app/)
+- GitHub: [@adityachotaliya9299-jpg](https://github.com/adityachotaliya9299-jpg)
 
 ---
 
 <div align="center">
 
-Built by [**Aditya Chotaliya**](https://adityachotaliya.xyz/)
-
-_This protocol is deployed on Sepolia testnet for portfolio demonstration. It has not been professionally audited. Do not use real funds._
+Built with Foundry · Deployed on Sepolia · Audited LFI-2026-01
 
 </div>
