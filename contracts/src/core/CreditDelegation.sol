@@ -1,14 +1,18 @@
-    // SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20}          from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20}       from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ILendingPool}    from "../interfaces/ILendingPool.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ILendingPool} from "../interfaces/ILendingPool.sol";
 
 /**
  * @title  CreditDelegation
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice The "Unique Twist" — allows a depositor to delegate their borrowing
  *         power to a trusted address without transferring collateral.
  *
@@ -56,10 +60,10 @@ contract CreditDelegation is ReentrancyGuard {
     // ── Types ──────────────────────────────────────────────────────────────────
 
     struct Delegation {
-        uint256 amount;     // max USD delegated (WAD)
-        uint256 used;       // USD borrowed so far (WAD)
-        uint256 expiry;     // unix timestamp; 0 = no expiry
-        bool    active;
+        uint256 amount; // max USD delegated (WAD)
+        uint256 used; // USD borrowed so far (WAD)
+        uint256 expiry; // unix timestamp; 0 = no expiry
+        bool active;
     }
 
     // ── Storage ────────────────────────────────────────────────────────────────
@@ -67,7 +71,8 @@ contract CreditDelegation is ReentrancyGuard {
     ILendingPool public immutable pool;
 
     /// delegator → delegatee → asset → Delegation
-    mapping(address => mapping(address => mapping(address => Delegation))) public delegations;
+    mapping(address => mapping(address => mapping(address => Delegation)))
+        public delegations;
 
     /// delegatee → list of active delegators (for UI discovery)
     mapping(address => address[]) public delegatorsOf;
@@ -81,7 +86,11 @@ contract CreditDelegation is ReentrancyGuard {
         uint256 amount,
         uint256 expiry
     );
-    event DelegationRevoked(address indexed delegator, address indexed delegatee, address indexed asset);
+    event DelegationRevoked(
+        address indexed delegator,
+        address indexed delegatee,
+        address indexed asset
+    );
     event DelegatedBorrow(
         address indexed delegator,
         address indexed delegatee,
@@ -129,8 +138,8 @@ contract CreditDelegation is ReentrancyGuard {
         uint256 expiry
     ) external {
         if (delegatee == address(0)) revert CreditDelegation__ZeroAddress();
-        if (delegatee == msg.sender)  revert CreditDelegation__SelfDelegation();
-        if (amount == 0)              revert CreditDelegation__ZeroAmount();
+        if (delegatee == msg.sender) revert CreditDelegation__SelfDelegation();
+        if (amount == 0) revert CreditDelegation__ZeroAmount();
         if (expiry > 0 && expiry <= block.timestamp)
             revert CreditDelegation__DelegationExpired();
 
@@ -181,8 +190,9 @@ contract CreditDelegation is ReentrancyGuard {
 
         Delegation storage d = delegations[delegator][msg.sender][asset];
 
-        if (!d.active)                         revert CreditDelegation__NoDelegation();
-        if (d.expiry > 0 && block.timestamp > d.expiry) revert CreditDelegation__DelegationExpired();
+        if (!d.active) revert CreditDelegation__NoDelegation();
+        if (d.expiry > 0 && block.timestamp > d.expiry)
+            revert CreditDelegation__DelegationExpired();
 
         uint256 remaining = d.amount - d.used;
         if (amount > remaining)
@@ -232,9 +242,9 @@ contract CreditDelegation is ReentrancyGuard {
     /**
      * @notice Returns all delegations granted TO a specific delegatee.
      */
-    function getDelegatorsOf(address delegatee)
-        external view returns (address[] memory)
-    {
+    function getDelegatorsOf(
+        address delegatee
+    ) external view returns (address[] memory) {
         return delegatorsOf[delegatee];
     }
 
