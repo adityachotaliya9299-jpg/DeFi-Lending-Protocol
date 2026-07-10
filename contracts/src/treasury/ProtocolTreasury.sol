@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ownable}  from "@openzeppelin/contracts/access/Ownable.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20}   from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title  ProtocolTreasury
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Accumulates protocol revenue: reserve factor cuts from borrow interest
  *         and any penalty fees from liquidations.
  *
@@ -24,7 +26,11 @@ contract ProtocolTreasury is Ownable {
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
-    event FundsWithdrawn(address indexed token, address indexed to, uint256 amount);
+    event FundsWithdrawn(
+        address indexed token,
+        address indexed to,
+        uint256 amount
+    );
     event EtherWithdrawn(address indexed to, uint256 amount);
 
     // ─── Errors ───────────────────────────────────────────────────────────────
@@ -44,12 +50,14 @@ contract ProtocolTreasury is Ownable {
      * @notice Withdraw `amount` of ERC-20 `token` to `to`.
      *         Only owner (governance) can call.
      */
-    function withdraw(address token, address to, uint256 amount)
-        external onlyOwner
-    {
-        if (token  == address(0)) revert ProtocolTreasury__ZeroAddress();
-        if (to     == address(0)) revert ProtocolTreasury__ZeroAddress();
-        if (amount == 0)          revert ProtocolTreasury__ZeroAmount();
+    function withdraw(
+        address token,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        if (token == address(0)) revert ProtocolTreasury__ZeroAddress();
+        if (to == address(0)) revert ProtocolTreasury__ZeroAddress();
+        if (amount == 0) revert ProtocolTreasury__ZeroAmount();
 
         uint256 bal = IERC20(token).balanceOf(address(this));
         if (amount > bal) revert ProtocolTreasury__InsufficientBalance();
@@ -63,7 +71,7 @@ contract ProtocolTreasury is Ownable {
      */
     function withdrawAll(address token, address to) external onlyOwner {
         if (token == address(0)) revert ProtocolTreasury__ZeroAddress();
-        if (to    == address(0)) revert ProtocolTreasury__ZeroAddress();
+        if (to == address(0)) revert ProtocolTreasury__ZeroAddress();
 
         uint256 bal = IERC20(token).balanceOf(address(this));
         if (bal == 0) revert ProtocolTreasury__ZeroAmount();
@@ -75,15 +83,16 @@ contract ProtocolTreasury is Ownable {
     /**
      * @notice Withdraw native ETH (if any arrives via receive()).
      */
-    function withdrawEther(address payable to, uint256 amount)
-        external onlyOwner
-    {
-        if (to     == address(0)) revert ProtocolTreasury__ZeroAddress();
-        if (amount == 0)          revert ProtocolTreasury__ZeroAmount();
+    function withdrawEther(
+        address payable to,
+        uint256 amount
+    ) external onlyOwner {
+        if (to == address(0)) revert ProtocolTreasury__ZeroAddress();
+        if (amount == 0) revert ProtocolTreasury__ZeroAmount();
         if (amount > address(this).balance)
             revert ProtocolTreasury__InsufficientBalance();
 
-        (bool ok,) = to.call{value: amount}("");
+        (bool ok, ) = to.call{value: amount}("");
         if (!ok) revert ProtocolTreasury__TransferFailed();
         emit EtherWithdrawn(to, amount);
     }
