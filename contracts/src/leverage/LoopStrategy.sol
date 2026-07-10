@@ -2,13 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title LoopStrategy
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Single-tx leveraged position via flash loan loop
  *
  * Key design:
@@ -24,8 +28,8 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    uint256 public constant MAX_LOOPS    = 10;
-    uint256 public constant BPS_TOTAL    = 10_000;
+    uint256 public constant MAX_LOOPS = 10;
+    uint256 public constant BPS_TOTAL = 10_000;
 
     error LoopStrategy__ZeroAddress();
     error LoopStrategy__ZeroAmount();
@@ -60,7 +64,7 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
         uint256 totalCollateral;
         uint256 totalDebt;
         uint256 loops;
-        bool    isOpen;
+        bool isOpen;
     }
 
     address public immutable pool;
@@ -70,16 +74,16 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
     mapping(address => Position) public positions;
 
     constructor(address admin, address _pool, address _flashLoan) {
-        if (admin        == address(0)) revert LoopStrategy__ZeroAddress();
-        if (_pool        == address(0)) revert LoopStrategy__ZeroAddress();
-        if (_flashLoan   == address(0)) revert LoopStrategy__ZeroAddress();
+        if (admin == address(0)) revert LoopStrategy__ZeroAddress();
+        if (_pool == address(0)) revert LoopStrategy__ZeroAddress();
+        if (_flashLoan == address(0)) revert LoopStrategy__ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
 
-        pool              = _pool;
+        pool = _pool;
         flashLoanProvider = _flashLoan;
-        maxLeverageBps    = 40_000; // 4x default
+        maxLeverageBps = 40_000; // 4x default
     }
 
     // =========================================================================
@@ -88,7 +92,7 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
 
     function setMaxLeverage(uint256 bps) external onlyRole(ADMIN_ROLE) {
         require(bps >= BPS_TOTAL, "min 1x");
-        require(bps <= 100_000,   "max 10x");
+        require(bps <= 100_000, "max 10x");
         maxLeverageBps = bps;
         emit MaxLeverageSet(bps);
     }
@@ -115,8 +119,10 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
         if (collateralAsset == address(0) || borrowAsset == address(0))
             revert LoopStrategy__ZeroAddress();
         if (initialAmount == 0) revert LoopStrategy__ZeroAmount();
-        if (loops > MAX_LOOPS) revert LoopStrategy__TooManyLoops(loops, MAX_LOOPS);
-        if (positions[msg.sender].isOpen) revert LoopStrategy__PositionAlreadyOpen();
+        if (loops > MAX_LOOPS)
+            revert LoopStrategy__TooManyLoops(loops, MAX_LOOPS);
+        if (positions[msg.sender].isOpen)
+            revert LoopStrategy__PositionAlreadyOpen();
 
         // Calculate effective leverage
         // leverage = sum of geometric series: 1 + ltv + ltv^2 + ... + ltv^(loops-1)
@@ -126,18 +132,26 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
             revert LoopStrategy__LeverageTooHigh(leverageBps, maxLeverageBps);
 
         // Pull initial collateral from user
-        IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), initialAmount);
+        IERC20(collateralAsset).safeTransferFrom(
+            msg.sender,
+            address(this),
+            initialAmount
+        );
 
         uint256 totalCollateral = initialAmount;
-        uint256 totalDebt       = 0;
+        uint256 totalDebt = 0;
         uint256 currentCollateral = initialAmount;
 
         // Loop: deposit → borrow → treat borrowed as more collateral
         for (uint256 i; i < loops; i++) {
             // Deposit current collateral into pool
             IERC20(collateralAsset).approve(pool, currentCollateral);
-            (bool depositOk,) = pool.call(
-                abi.encodeWithSignature("deposit(address,uint256)", collateralAsset, currentCollateral)
+            (bool depositOk, ) = pool.call(
+                abi.encodeWithSignature(
+                    "deposit(address,uint256)",
+                    collateralAsset,
+                    currentCollateral
+                )
             );
             require(depositOk, "LoopStrategy: deposit failed");
 
@@ -146,24 +160,29 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
             // Borrow ltvBps% of deposited collateral (in borrow asset)
             // Simplified: assume 1:1 price (real impl needs oracle)
             uint256 toBorrow = (currentCollateral * ltvBps) / BPS_TOTAL;
-            (bool borrowOk,) = pool.call(
-                abi.encodeWithSignature("borrow(address,uint256,uint8)", borrowAsset, toBorrow, uint8(1))
+            (bool borrowOk, ) = pool.call(
+                abi.encodeWithSignature(
+                    "borrow(address,uint256,uint8)",
+                    borrowAsset,
+                    toBorrow,
+                    uint8(1)
+                )
             );
             require(borrowOk, "LoopStrategy: borrow failed");
 
-            totalDebt       += toBorrow;
+            totalDebt += toBorrow;
             currentCollateral = toBorrow; // borrowed amount becomes next collateral
-            totalCollateral  += toBorrow;
+            totalCollateral += toBorrow;
         }
 
         positions[msg.sender] = Position({
-            collateralAsset:   collateralAsset,
-            borrowAsset:       borrowAsset,
+            collateralAsset: collateralAsset,
+            borrowAsset: borrowAsset,
             initialCollateral: initialAmount,
-            totalCollateral:   totalCollateral,
-            totalDebt:         totalDebt,
-            loops:             loops,
-            isOpen:            true
+            totalCollateral: totalCollateral,
+            totalDebt: totalDebt,
+            loops: loops,
+            isOpen: true
         });
 
         emit PositionOpened(
@@ -188,9 +207,13 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
         uint256 collateral = pos.totalCollateral;
 
         if (debt > 0) {
-            IERC20(pos.borrowAsset).safeTransferFrom(msg.sender, address(this), debt);
+            IERC20(pos.borrowAsset).safeTransferFrom(
+                msg.sender,
+                address(this),
+                debt
+            );
             IERC20(pos.borrowAsset).approve(pool, debt);
-            (bool repayOk,) = pool.call(
+            (bool repayOk, ) = pool.call(
                 abi.encodeWithSignature(
                     "repay(address,uint256,uint8)",
                     pos.borrowAsset,
@@ -201,8 +224,12 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
             require(repayOk, "LoopStrategy: repay failed");
         }
 
-        (bool withdrawOk,) = pool.call(
-            abi.encodeWithSignature("withdraw(address,uint256)", pos.collateralAsset, type(uint256).max)
+        (bool withdrawOk, ) = pool.call(
+            abi.encodeWithSignature(
+                "withdraw(address,uint256)",
+                pos.collateralAsset,
+                type(uint256).max
+            )
         );
         require(withdrawOk, "LoopStrategy: withdraw failed");
 
@@ -211,7 +238,13 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
             IERC20(pos.collateralAsset).safeTransfer(msg.sender, returned);
         }
 
-        emit PositionClosed(msg.sender, pos.collateralAsset, pos.borrowAsset, returned, debt);
+        emit PositionClosed(
+            msg.sender,
+            pos.collateralAsset,
+            pos.borrowAsset,
+            returned,
+            debt
+        );
 
         delete positions[msg.sender];
     }
@@ -224,9 +257,10 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
         return positions[user];
     }
 
-    function calculateLeverage(uint256 ltvBps, uint256 loops)
-        external pure returns (uint256)
-    {
+    function calculateLeverage(
+        uint256 ltvBps,
+        uint256 loops
+    ) external pure returns (uint256) {
         return _calculateLeverage(ltvBps, loops);
     }
 
@@ -238,9 +272,10 @@ contract LoopStrategy is AccessControl, ReentrancyGuard {
      * @dev Geometric series: sum = (BPS_TOTAL * (ltvBps^loops - BPS_TOTAL^loops))
      *      Approximated iteratively to avoid overflow
      */
-    function _calculateLeverage(uint256 ltvBps, uint256 loops)
-        internal pure returns (uint256 leverageBps)
-    {
+    function _calculateLeverage(
+        uint256 ltvBps,
+        uint256 loops
+    ) internal pure returns (uint256 leverageBps) {
         leverageBps = BPS_TOTAL; // 1x base
         uint256 term = BPS_TOTAL;
         for (uint256 i = 1; i < loops; i++) {
