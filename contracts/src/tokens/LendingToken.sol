@@ -2,13 +2,15 @@
 pragma solidity ^0.8.24;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Permit
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title  LendingToken
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Interest-bearing receipt token minted when users deposit into the
  *         LendingPool.  Analogous to Aave's aToken or Compound's cToken.
  *
@@ -109,16 +111,13 @@ contract LendingToken is ERC20, ERC20Permit, AccessControl {
         address underlying_,
         address admin,
         address minter
-    )
-        ERC20(name_, symbol_)
-        ERC20Permit(name_)
-    {
+    ) ERC20(name_, symbol_) ERC20Permit(name_) {
         if (underlying_ == address(0)) revert LendingToken__ZeroAddress();
-        if (admin       == address(0)) revert LendingToken__ZeroAddress();
-        if (minter      == address(0)) revert LendingToken__ZeroAddress();
+        if (admin == address(0)) revert LendingToken__ZeroAddress();
+        if (minter == address(0)) revert LendingToken__ZeroAddress();
 
         underlying = underlying_;
-        _decimals  = decimals_;
+        _decimals = decimals_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MINTER_ROLE, minter);
@@ -179,11 +178,10 @@ contract LendingToken is ERC20, ERC20Permit, AccessControl {
      * @param  currentIndex Current liquidity index in RAY.
      * @return              Redeemable amount in the underlying token's decimals.
      */
-    function balanceWithIndex(address account, uint256 currentIndex)
-        external
-        view
-        returns (uint256)
-    {
+    function balanceWithIndex(
+        address account,
+        uint256 currentIndex
+    ) external view returns (uint256) {
         if (currentIndex == 0) return 0;
         return _scaledBalances[account].rayMul(currentIndex);
     }
@@ -202,19 +200,20 @@ contract LendingToken is ERC20, ERC20Permit, AccessControl {
      * @param  amount Amount of underlying deposited (in underlying decimals).
      * @param  index  Current liquidity index in RAY.
      */
-    function mint(address to, uint256 amount, uint256 index)
-        external
-        onlyRole(MINTER_ROLE)
-    {
-        if (to     == address(0)) revert LendingToken__ZeroAddress();
-        if (amount == 0)          revert LendingToken__ZeroAmount();
-        if (index  == 0)          revert LendingToken__ZeroIndex();
+    function mint(
+        address to,
+        uint256 amount,
+        uint256 index
+    ) external onlyRole(MINTER_ROLE) {
+        if (to == address(0)) revert LendingToken__ZeroAddress();
+        if (amount == 0) revert LendingToken__ZeroAmount();
+        if (index == 0) revert LendingToken__ZeroIndex();
 
         // scaledAmount = amount * RAY / index  (rayDiv)
         uint256 scaledAmount = amount.rayDiv(index);
 
         _scaledBalances[to] += scaledAmount;
-        _totalScaledSupply  += scaledAmount;
+        _totalScaledSupply += scaledAmount;
 
         // Mint 1:1 ERC-20 tokens for wallet / tooling visibility
         _mint(to, amount);
@@ -231,19 +230,20 @@ contract LendingToken is ERC20, ERC20Permit, AccessControl {
      * @param  amount Amount of underlying being withdrawn.
      * @param  index  Current liquidity index in RAY.
      */
-    function burn(address from, uint256 amount, uint256 index)
-        external
-        onlyRole(MINTER_ROLE)
-    {
-        if (from   == address(0)) revert LendingToken__ZeroAddress();
-        if (amount == 0)          revert LendingToken__ZeroAmount();
-        if (index  == 0)          revert LendingToken__ZeroIndex();
+    function burn(
+        address from,
+        uint256 amount,
+        uint256 index
+    ) external onlyRole(MINTER_ROLE) {
+        if (from == address(0)) revert LendingToken__ZeroAddress();
+        if (amount == 0) revert LendingToken__ZeroAmount();
+        if (index == 0) revert LendingToken__ZeroIndex();
 
         uint256 scaledAmount = amount.rayDiv(index);
 
         // Underflow will revert via Solidity 0.8 checked arithmetic
         _scaledBalances[from] -= scaledAmount;
-        _totalScaledSupply    -= scaledAmount;
+        _totalScaledSupply -= scaledAmount;
 
         _burn(from, amount);
 
@@ -257,11 +257,10 @@ contract LendingToken is ERC20, ERC20Permit, AccessControl {
      * @param  index       Current liquidity index in RAY.
      * @return burnedAmount Exact amount of underlying burned.
      */
-    function burnAll(address from, uint256 index)
-        external
-        onlyRole(MINTER_ROLE)
-        returns (uint256 burnedAmount)
-    {
+    function burnAll(
+        address from,
+        uint256 index
+    ) external onlyRole(MINTER_ROLE) returns (uint256 burnedAmount) {
         if (index == 0) revert LendingToken__ZeroIndex();
 
         uint256 scaledBalance = _scaledBalances[from];
@@ -271,7 +270,7 @@ contract LendingToken is ERC20, ERC20Permit, AccessControl {
         burnedAmount = scaledBalance.rayMul(index);
 
         _scaledBalances[from] = 0;
-        _totalScaledSupply   -= scaledBalance;
+        _totalScaledSupply -= scaledBalance;
 
         _burn(from, burnedAmount);
 
