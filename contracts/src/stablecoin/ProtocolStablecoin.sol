@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ERC20}         from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title  ProtocolStablecoin (pUSD)
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice USD-pegged stablecoin minted by StablecoinVault against collateral.
  *         Inspired by MakerDAO's DAI — overcollateralised and liquidatable.
  *         The token itself is simple — CDP logic lives in StablecoinVault.
