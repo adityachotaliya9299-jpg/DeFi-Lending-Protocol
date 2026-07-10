@@ -2,11 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title PointsAccounting
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Tracks protocol incentive points per user per asset per mode
  *
  * Key design:
@@ -18,9 +20,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * - Anyone can trigger accrual for any user (permissionless update)
  */
 contract PointsAccounting is AccessControl, ReentrancyGuard {
-
-    bytes32 public constant ADMIN_ROLE    = keccak256("ADMIN_ROLE");
-    bytes32 public constant POOL_ROLE     = keccak256("POOL_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
 
     uint256 public constant SUPPLY_MODE = 1;
     uint256 public constant BORROW_MODE = 2;
@@ -53,13 +54,13 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
     struct AssetRate {
         uint256 supplyRate; // points per token per second (WAD-scaled)
         uint256 borrowRate; // points per token per second (WAD-scaled)
-        bool    active;
+        bool active;
     }
 
     struct UserPosition {
-        uint256 balance;      // current token balance (deposit or borrow)
-        uint256 lastUpdate;   // timestamp of last accrual
-        uint256 points;       // accumulated points
+        uint256 balance; // current token balance (deposit or borrow)
+        uint256 lastUpdate; // timestamp of last accrual
+        uint256 points; // accumulated points
     }
 
     // ── Storage ───────────────────────────────────────────────────────────────
@@ -68,7 +69,8 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
     mapping(address => AssetRate) public assetRates;
 
     // user → asset → mode → UserPosition
-    mapping(address => mapping(address => mapping(uint256 => UserPosition))) private _positions;
+    mapping(address => mapping(address => mapping(uint256 => UserPosition)))
+        private _positions;
 
     // user → total points across all assets/modes
     mapping(address => uint256) public totalPoints;
@@ -77,7 +79,7 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
 
     constructor(address admin, address pool) {
         if (admin == address(0)) revert PointsAccounting__ZeroAddress();
-        if (pool  == address(0)) revert PointsAccounting__ZeroAddress();
+        if (pool == address(0)) revert PointsAccounting__ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
@@ -105,7 +107,7 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
         assetRates[asset] = AssetRate({
             supplyRate: supplyRate,
             borrowRate: borrowRate,
-            active:     active
+            active: active
         });
         emit RateSet(asset, SUPPLY_MODE, supplyRate);
         emit RateSet(asset, BORROW_MODE, borrowRate);
@@ -128,9 +130,10 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
         uint256 mode,
         uint256 newBalance
     ) external onlyRole(POOL_ROLE) {
-        if (user  == address(0)) revert PointsAccounting__ZeroAddress();
+        if (user == address(0)) revert PointsAccounting__ZeroAddress();
         if (asset == address(0)) revert PointsAccounting__ZeroAddress();
-        if (mode != SUPPLY_MODE && mode != BORROW_MODE) revert PointsAccounting__InvalidMode();
+        if (mode != SUPPLY_MODE && mode != BORROW_MODE)
+            revert PointsAccounting__InvalidMode();
 
         AssetRate memory rate = assetRates[asset];
         if (!rate.active) return; // silently skip if asset not active
@@ -138,7 +141,10 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
         UserPosition storage pos = _positions[user][asset][mode];
 
         // Accrue points on old balance before updating
-        uint256 accrued = _accrue(pos, mode == SUPPLY_MODE ? rate.supplyRate : rate.borrowRate);
+        uint256 accrued = _accrue(
+            pos,
+            mode == SUPPLY_MODE ? rate.supplyRate : rate.borrowRate
+        );
 
         if (accrued > 0) {
             totalPoints[user] += accrued;
@@ -146,7 +152,7 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
         }
 
         // Update position
-        pos.balance    = newBalance;
+        pos.balance = newBalance;
         pos.lastUpdate = block.timestamp;
 
         emit PositionUpdated(user, asset, mode, newBalance, block.timestamp);
@@ -157,15 +163,19 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
      * @dev Permissionless — anyone can trigger accrual for any user
      */
     function accruePoints(address user, address asset, uint256 mode) external {
-        if (user  == address(0)) revert PointsAccounting__ZeroAddress();
+        if (user == address(0)) revert PointsAccounting__ZeroAddress();
         if (asset == address(0)) revert PointsAccounting__ZeroAddress();
-        if (mode != SUPPLY_MODE && mode != BORROW_MODE) revert PointsAccounting__InvalidMode();
+        if (mode != SUPPLY_MODE && mode != BORROW_MODE)
+            revert PointsAccounting__InvalidMode();
 
         AssetRate memory rate = assetRates[asset];
         if (!rate.active) return;
 
         UserPosition storage pos = _positions[user][asset][mode];
-        uint256 accrued = _accrue(pos, mode == SUPPLY_MODE ? rate.supplyRate : rate.borrowRate);
+        uint256 accrued = _accrue(
+            pos,
+            mode == SUPPLY_MODE ? rate.supplyRate : rate.borrowRate
+        );
 
         if (accrued > 0) {
             totalPoints[user] += accrued;
@@ -179,9 +189,15 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
      * @notice Redeem (burn) points — called by governance/rewards contract
      * @dev Only ADMIN can redeem on behalf of users
      */
-    function redeemPoints(address user, uint256 amount) external onlyRole(ADMIN_ROLE) {
+    function redeemPoints(
+        address user,
+        uint256 amount
+    ) external onlyRole(ADMIN_ROLE) {
         if (amount == 0) revert PointsAccounting__ZeroAmount();
-        require(totalPoints[user] >= amount, "PointsAccounting__InsufficientPoints");
+        require(
+            totalPoints[user] >= amount,
+            "PointsAccounting__InsufficientPoints"
+        );
         totalPoints[user] -= amount;
         emit PointsRedeemed(user, amount);
     }
@@ -193,9 +209,11 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
     /**
      * @notice Get user's pending (unaccrued) points for a position
      */
-    function getPendingPoints(address user, address asset, uint256 mode)
-        external view returns (uint256)
-    {
+    function getPendingPoints(
+        address user,
+        address asset,
+        uint256 mode
+    ) external view returns (uint256) {
         AssetRate memory rate = assetRates[asset];
         if (!rate.active) return 0;
 
@@ -215,8 +233,13 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
     /**
      * @notice Get user's position details
      */
-    function getPosition(address user, address asset, uint256 mode)
-        external view
+    function getPosition(
+        address user,
+        address asset,
+        uint256 mode
+    )
+        external
+        view
         returns (uint256 balance, uint256 lastUpdate, uint256 accruedPoints)
     {
         UserPosition storage pos = _positions[user][asset][mode];
@@ -231,9 +254,10 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
      * @dev Accrue points on a position: points = balance * rate * dt
      *      Updates pos.points and returns newly accrued amount.
      */
-    function _accrue(UserPosition storage pos, uint256 rate)
-        internal returns (uint256 accrued)
-    {
+    function _accrue(
+        UserPosition storage pos,
+        uint256 rate
+    ) internal returns (uint256 accrued) {
         if (pos.balance == 0 || pos.lastUpdate == 0) return 0;
         uint256 dt = block.timestamp - pos.lastUpdate;
         if (dt == 0) return 0;
@@ -246,9 +270,10 @@ contract PointsAccounting is AccessControl, ReentrancyGuard {
     /**
      * @dev View-only version of _accrue (no state changes)
      */
-    function _pendingPoints(UserPosition storage pos, uint256 rate)
-        internal view returns (uint256)
-    {
+    function _pendingPoints(
+        UserPosition storage pos,
+        uint256 rate
+    ) internal view returns (uint256) {
         if (pos.balance == 0 || pos.lastUpdate == 0) return 0;
         uint256 dt = block.timestamp - pos.lastUpdate;
         return (pos.balance * rate * dt) / 1e18;
