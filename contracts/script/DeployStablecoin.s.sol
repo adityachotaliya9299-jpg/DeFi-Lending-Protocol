@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Script, console2}    from "forge-std/Script.sol";
-import {ProtocolStablecoin}   from "../src/stablecoin/ProtocolStablecoin.sol";
-import {StablecoinVault}      from "../src/stablecoin/StablecoinVault.sol";
-import {GovernanceTimelock}   from "../src/governance/GovernanceTimelock.sol";
+import {Script, console2} from "forge-std/Script.sol";
+import {ProtocolStablecoin} from "../src/stablecoin/ProtocolStablecoin.sol";
+import {StablecoinVault} from "../src/stablecoin/StablecoinVault.sol";
+import {GovernanceTimelock} from "../src/governance/GovernanceTimelock.sol";
 
 /**
  * @title  DeployStablecoin
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Deploys ProtocolStablecoin (pUSD) + StablecoinVault + GovernanceTimelock
  *         and wires them together on Sepolia.
  *
@@ -39,20 +39,21 @@ import {GovernanceTimelock}   from "../src/governance/GovernanceTimelock.sol";
  *   NEXT_PUBLIC_GOVERNANCE_TIMELOCK=...
  */
 contract DeployStablecoin is Script {
-
     // ── Sepolia constants ─────────────────────────────────────────────────────
     address constant WETH_SEPOLIA = 0xdd13E55209Fd76AfE204dBda4007C227904f0a81;
 
     function run() external {
         address deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);
-        uint256 pk       = vm.envUint("PRIVATE_KEY");
+        uint256 pk = vm.envUint("PRIVATE_KEY");
 
-        address oracle   = vm.envOr("PRICE_ORACLE",      address(0));
+        address oracle = vm.envOr("PRICE_ORACLE", address(0));
         address treasury = vm.envOr("PROTOCOL_TREASURY", address(0));
 
         // Fallback to known Sepolia addresses if env not set
-        if (oracle   == address(0)) oracle   = 0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc;
-        if (treasury == address(0)) treasury = 0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3;
+        if (oracle == address(0))
+            oracle = 0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc;
+        if (treasury == address(0))
+            treasury = 0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3;
 
         console2.log("=== pUSD Stablecoin System Deployment ===");
         console2.log("Deployer:  ", deployer);
@@ -89,16 +90,17 @@ contract DeployStablecoin is Script {
         //      liquidationBonus:        10% (1_000 bps)  — bonus for liquidators
         //      debtCeiling:           1_000_000 pUSD     — max mintable
         //      stabilityFee:           200 bps            — 2% annual
-   
-        StablecoinVault.CollateralConfig memory wethCfg = StablecoinVault.CollateralConfig({
-            collateralizationRatio: 15_000,
-            liquidationRatio:       13_000,
-            liquidationBonus:       1_000,
-            debtCeiling:            1_000_000e18,
-            stabilityFeeBps:        200,
-            totalDebt:              0,
-            isActive:               true
-        });
+
+        StablecoinVault.CollateralConfig memory wethCfg = StablecoinVault
+            .CollateralConfig({
+                collateralizationRatio: 15_000,
+                liquidationRatio: 13_000,
+                liquidationBonus: 1_000,
+                debtCeiling: 1_000_000e18,
+                stabilityFeeBps: 200,
+                totalDebt: 0,
+                isActive: true
+            });
         vault.setCollateralConfig(WETH_SEPOLIA, wethCfg);
         console2.log("WETH collateral configured in vault");
 
@@ -114,9 +116,12 @@ contract DeployStablecoin is Script {
         //      - Transfer CANCELLER_ROLE to separate guardian multisig
         //      - Renounce DEFAULT_ADMIN_ROLE from deployer
         //
-        address[] memory proposers  = new address[](1); proposers[0]  = deployer;
-        address[] memory executors  = new address[](1); executors[0]  = deployer;
-        address[] memory cancellers = new address[](1); cancellers[0] = deployer;
+        address[] memory proposers = new address[](1);
+        proposers[0] = deployer;
+        address[] memory executors = new address[](1);
+        executors[0] = deployer;
+        address[] memory cancellers = new address[](1);
+        cancellers[0] = deployer;
 
         GovernanceTimelock timelock = new GovernanceTimelock(
             deployer,
@@ -135,8 +140,8 @@ contract DeployStablecoin is Script {
         console2.log("=== DEPLOYMENT COMPLETE ===");
         console2.log("");
         console2.log("=== Add to frontend/.env.local ===");
-        console2.log("NEXT_PUBLIC_PUSD_ADDRESS=",        address(pUSD));
-        console2.log("NEXT_PUBLIC_STABLECOIN_VAULT=",    address(vault));
+        console2.log("NEXT_PUBLIC_PUSD_ADDRESS=", address(pUSD));
+        console2.log("NEXT_PUBLIC_STABLECOIN_VAULT=", address(vault));
         console2.log("NEXT_PUBLIC_GOVERNANCE_TIMELOCK=", address(timelock));
         console2.log("");
         console2.log("=== Next steps ===");
