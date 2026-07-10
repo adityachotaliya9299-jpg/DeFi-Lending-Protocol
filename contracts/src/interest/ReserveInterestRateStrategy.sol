@@ -6,7 +6,7 @@ import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title ReserveInterestRateStrategy
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Aave-compatible interest rate strategy per reserve
  *
  * Key design:
@@ -21,7 +21,7 @@ contract ReserveInterestRateStrategy is AccessControl {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    uint256 public constant RAY              = 1e27;
+    uint256 public constant RAY = 1e27;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     // ── Errors ────────────────────────────────────────────────────────────────
@@ -69,18 +69,20 @@ contract ReserveInterestRateStrategy is AccessControl {
         uint256 _stableRateSlope2
     ) {
         if (admin == address(0)) revert Strategy__ZeroAddress();
-        if (_optimalUtilizationRate == 0) revert Strategy__OptimalUtilizationZero();
-        if (_optimalUtilizationRate >= RAY) revert Strategy__OptimalUtilizationAbove100();
+        if (_optimalUtilizationRate == 0)
+            revert Strategy__OptimalUtilizationZero();
+        if (_optimalUtilizationRate >= RAY)
+            revert Strategy__OptimalUtilizationAbove100();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
 
-        optimalUtilizationRate  = _optimalUtilizationRate;
-        baseVariableBorrowRate  = _baseVariableBorrowRate;
-        variableRateSlope1      = _variableRateSlope1;
-        variableRateSlope2      = _variableRateSlope2;
-        stableRateSlope1        = _stableRateSlope1;
-        stableRateSlope2        = _stableRateSlope2;
+        optimalUtilizationRate = _optimalUtilizationRate;
+        baseVariableBorrowRate = _baseVariableBorrowRate;
+        variableRateSlope1 = _variableRateSlope1;
+        variableRateSlope2 = _variableRateSlope2;
+        stableRateSlope1 = _stableRateSlope1;
+        stableRateSlope2 = _stableRateSlope2;
 
         emit StrategyUpdated(
             _optimalUtilizationRate,
@@ -116,11 +118,15 @@ contract ReserveInterestRateStrategy is AccessControl {
         uint256 totalVariableDebt,
         uint256 averageStableBorrowRate,
         uint256 reserveFactor
-    ) external view returns (
-        uint256 liquidityRate,
-        uint256 stableBorrowRate,
-        uint256 variableBorrowRate
-    ) {
+    )
+        external
+        view
+        returns (
+            uint256 liquidityRate,
+            uint256 stableBorrowRate,
+            uint256 variableBorrowRate
+        )
+    {
         uint256 totalDebt = totalStableDebt + totalVariableDebt;
         uint256 totalLiquidity = availableLiquidity + totalDebt;
 
@@ -130,19 +136,27 @@ contract ReserveInterestRateStrategy is AccessControl {
 
         if (utilizationRate <= optimalUtilizationRate) {
             // Below optimal: linear interpolation on slope1
-            uint256 utilizationFraction = utilizationRate.rayDiv(optimalUtilizationRate);
-            variableBorrowRate = baseVariableBorrowRate
-                + variableRateSlope1.rayMul(utilizationFraction);
+            uint256 utilizationFraction = utilizationRate.rayDiv(
+                optimalUtilizationRate
+            );
+            variableBorrowRate =
+                baseVariableBorrowRate +
+                variableRateSlope1.rayMul(utilizationFraction);
             stableBorrowRate = stableRateSlope1.rayMul(utilizationFraction);
         } else {
             // Above optimal: add slope2 for excess utilization
-            uint256 excessUtilization = utilizationRate - optimalUtilizationRate;
-            uint256 excessFraction    = excessUtilization.rayDiv(RAY - optimalUtilizationRate);
-            variableBorrowRate = baseVariableBorrowRate
-                + variableRateSlope1
-                + variableRateSlope2.rayMul(excessFraction);
-            stableBorrowRate = stableRateSlope1
-                + stableRateSlope2.rayMul(excessFraction);
+            uint256 excessUtilization = utilizationRate -
+                optimalUtilizationRate;
+            uint256 excessFraction = excessUtilization.rayDiv(
+                RAY - optimalUtilizationRate
+            );
+            variableBorrowRate =
+                baseVariableBorrowRate +
+                variableRateSlope1 +
+                variableRateSlope2.rayMul(excessFraction);
+            stableBorrowRate =
+                stableRateSlope1 +
+                stableRateSlope2.rayMul(excessFraction);
         }
 
         // Stable rate includes a buffer over variable to incentivize variable mode
@@ -152,14 +166,14 @@ contract ReserveInterestRateStrategy is AccessControl {
         uint256 weightedBorrowRate = totalDebt == 0
             ? 0
             : (totalVariableDebt.rayMul(variableBorrowRate) +
-               totalStableDebt.rayMul(averageStableBorrowRate)).rayDiv(
-                   totalDebt.wadToRay()
-               );
+                totalStableDebt.rayMul(averageStableBorrowRate)).rayDiv(
+                    totalDebt.wadToRay()
+                );
 
         uint256 reserveFactorRay = reserveFactor * (RAY / 10_000);
-        liquidityRate = weightedBorrowRate
-            .rayMul(utilizationRate)
-            .rayMul(RAY - reserveFactorRay);
+        liquidityRate = weightedBorrowRate.rayMul(utilizationRate).rayMul(
+            RAY - reserveFactorRay
+        );
     }
 
     /**
@@ -173,15 +187,17 @@ contract ReserveInterestRateStrategy is AccessControl {
         uint256 _stableRateSlope1,
         uint256 _stableRateSlope2
     ) external onlyRole(ADMIN_ROLE) {
-        if (_optimalUtilizationRate == 0) revert Strategy__OptimalUtilizationZero();
-        if (_optimalUtilizationRate >= RAY) revert Strategy__OptimalUtilizationAbove100();
+        if (_optimalUtilizationRate == 0)
+            revert Strategy__OptimalUtilizationZero();
+        if (_optimalUtilizationRate >= RAY)
+            revert Strategy__OptimalUtilizationAbove100();
 
         optimalUtilizationRate = _optimalUtilizationRate;
         baseVariableBorrowRate = _baseVariableBorrowRate;
-        variableRateSlope1     = _variableRateSlope1;
-        variableRateSlope2     = _variableRateSlope2;
-        stableRateSlope1       = _stableRateSlope1;
-        stableRateSlope2       = _stableRateSlope2;
+        variableRateSlope1 = _variableRateSlope1;
+        variableRateSlope2 = _variableRateSlope2;
+        stableRateSlope1 = _stableRateSlope1;
+        stableRateSlope2 = _stableRateSlope2;
 
         emit StrategyUpdated(
             _optimalUtilizationRate,
