@@ -5,7 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title RiskGovernance
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice On-chain token-weighted voting for risk parameter changes
  *
  * Key design:
@@ -18,17 +18,16 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
  * - paramType: 0=LTV, 1=LiqThreshold, 2=LiqBonus, 3=ReserveFactor
  */
 contract RiskGovernance is AccessControl {
-
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    uint256 public constant VOTING_PERIOD   = 3 days;
+    uint256 public constant VOTING_PERIOD = 3 days;
     uint256 public constant TIMELOCK_PERIOD = 1 days;
-    uint256 public constant MIN_QUORUM_BPS  = 1_000; // 10% of votes
-    uint256 public constant BPS_TOTAL       = 10_000;
+    uint256 public constant MIN_QUORUM_BPS = 1_000; // 10% of votes
+    uint256 public constant BPS_TOTAL = 10_000;
 
-    uint8 public constant PARAM_LTV            = 0;
-    uint8 public constant PARAM_LIQ_THRESHOLD  = 1;
-    uint8 public constant PARAM_LIQ_BONUS      = 2;
+    uint8 public constant PARAM_LTV = 0;
+    uint8 public constant PARAM_LIQ_THRESHOLD = 1;
+    uint8 public constant PARAM_LIQ_BONUS = 2;
     uint8 public constant PARAM_RESERVE_FACTOR = 3;
 
     error RiskGov__ZeroAddress();
@@ -42,22 +41,38 @@ contract RiskGovernance is AccessControl {
     error RiskGov__ProposalDoesNotExist();
     error RiskGov__QuorumNotReached(uint256 totalVotes, uint256 required);
 
-    event ProposalCreated(uint256 indexed id, address indexed proposer, address asset, uint8 paramType, uint256 newValue);
-    event VoteCast(uint256 indexed id, address indexed voter, bool support, uint256 weight);
-    event ProposalExecuted(uint256 indexed id, address asset, uint8 paramType, uint256 newValue);
+    event ProposalCreated(
+        uint256 indexed id,
+        address indexed proposer,
+        address asset,
+        uint8 paramType,
+        uint256 newValue
+    );
+    event VoteCast(
+        uint256 indexed id,
+        address indexed voter,
+        bool support,
+        uint256 weight
+    );
+    event ProposalExecuted(
+        uint256 indexed id,
+        address asset,
+        uint8 paramType,
+        uint256 newValue
+    );
     event ProposalRejected(uint256 indexed id);
 
     struct Proposal {
         address proposer;
         address asset;
-        uint8   paramType;
+        uint8 paramType;
         uint256 newValue;
         uint256 votingEnds;
         uint256 timelockEnds;
         uint256 forVotes;
         uint256 againstVotes;
-        bool    executed;
-        bool    exists;
+        bool executed;
+        bool exists;
     }
 
     address public immutable collateralManager;
@@ -67,44 +82,57 @@ contract RiskGovernance is AccessControl {
     mapping(uint256 => Proposal) public proposals;
     mapping(uint256 => mapping(address => bool)) public hasVoted;
 
-    constructor(address admin, address _collateralManager, address _governanceToken) {
-        if (admin              == address(0)) revert RiskGov__ZeroAddress();
+    constructor(
+        address admin,
+        address _collateralManager,
+        address _governanceToken
+    ) {
+        if (admin == address(0)) revert RiskGov__ZeroAddress();
         if (_collateralManager == address(0)) revert RiskGov__ZeroAddress();
-        if (_governanceToken   == address(0)) revert RiskGov__ZeroAddress();
+        if (_governanceToken == address(0)) revert RiskGov__ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
 
         collateralManager = _collateralManager;
-        governanceToken   = _governanceToken;
+        governanceToken = _governanceToken;
     }
 
     // =========================================================================
     //  Propose
     // =========================================================================
 
-    function propose(address asset, uint8 paramType, uint256 newValue)
-        external returns (uint256 proposalId)
-    {
+    function propose(
+        address asset,
+        uint8 paramType,
+        uint256 newValue
+    ) external returns (uint256 proposalId) {
         if (asset == address(0)) revert RiskGov__ZeroAddress();
-        if (paramType > PARAM_RESERVE_FACTOR) revert RiskGov__InvalidParam(paramType);
+        if (paramType > PARAM_RESERVE_FACTOR)
+            revert RiskGov__InvalidParam(paramType);
 
         proposalId = ++proposalCount;
 
         proposals[proposalId] = Proposal({
-            proposer:     msg.sender,
-            asset:        asset,
-            paramType:    paramType,
-            newValue:     newValue,
-            votingEnds:   block.timestamp + VOTING_PERIOD,
+            proposer: msg.sender,
+            asset: asset,
+            paramType: paramType,
+            newValue: newValue,
+            votingEnds: block.timestamp + VOTING_PERIOD,
             timelockEnds: block.timestamp + VOTING_PERIOD + TIMELOCK_PERIOD,
-            forVotes:     0,
+            forVotes: 0,
             againstVotes: 0,
-            executed:     false,
-            exists:       true
+            executed: false,
+            exists: true
         });
 
-        emit ProposalCreated(proposalId, msg.sender, asset, paramType, newValue);
+        emit ProposalCreated(
+            proposalId,
+            msg.sender,
+            asset,
+            paramType,
+            newValue
+        );
     }
 
     // =========================================================================
@@ -113,7 +141,7 @@ contract RiskGovernance is AccessControl {
 
     function castVote(uint256 proposalId, bool support) external {
         Proposal storage p = proposals[proposalId];
-        if (!p.exists)                       revert RiskGov__ProposalDoesNotExist();
+        if (!p.exists) revert RiskGov__ProposalDoesNotExist();
         if (block.timestamp >= p.votingEnds) revert RiskGov__VotingEnded();
         if (hasVoted[proposalId][msg.sender]) revert RiskGov__AlreadyVoted();
 
@@ -137,10 +165,11 @@ contract RiskGovernance is AccessControl {
 
     function execute(uint256 proposalId) external {
         Proposal storage p = proposals[proposalId];
-        if (!p.exists)                        revert RiskGov__ProposalDoesNotExist();
-        if (block.timestamp < p.votingEnds)   revert RiskGov__VotingNotEnded();
-        if (block.timestamp < p.timelockEnds) revert RiskGov__TimelockNotExpired();
-        if (p.executed)                        revert RiskGov__ProposalAlreadyExecuted();
+        if (!p.exists) revert RiskGov__ProposalDoesNotExist();
+        if (block.timestamp < p.votingEnds) revert RiskGov__VotingNotEnded();
+        if (block.timestamp < p.timelockEnds)
+            revert RiskGov__TimelockNotExpired();
+        if (p.executed) revert RiskGov__ProposalAlreadyExecuted();
 
         uint256 totalVotes = p.forVotes + p.againstVotes;
         uint256 totalSupply = _getTotalSupply();
@@ -202,13 +231,20 @@ contract RiskGovernance is AccessControl {
         return abi.decode(data, (uint256));
     }
 
-    function _applyParam(address asset, uint8 paramType, uint256 newValue) internal {
+    function _applyParam(
+        address asset,
+        uint8 paramType,
+        uint256 newValue
+    ) internal {
         // In production: call collateralManager.updateAssetParam(asset, paramType, newValue)
         // Here we emit the intent — actual integration depends on CM interface
         // This keeps the contract self-contained for testing
-        (bool ok,) = collateralManager.call(
+        (bool ok, ) = collateralManager.call(
             abi.encodeWithSignature(
-                "updateParam(address,uint8,uint256)", asset, paramType, newValue
+                "updateParam(address,uint8,uint256)",
+                asset,
+                paramType,
+                newValue
             )
         );
         // Silently continue if CM doesn't implement updateParam (for test isolation)
