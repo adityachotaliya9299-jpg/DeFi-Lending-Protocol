@@ -3,14 +3,18 @@ pragma solidity ^0.8.24;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title YieldVault
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice ERC-4626 compliant vault wrapping LendFi lTokens
  *
  * Key design:
@@ -32,16 +36,27 @@ contract YieldVault is ERC20, AccessControl, ReentrancyGuard {
     error YieldVault__InsufficientShares();
     error YieldVault__ExceedsMaxDeposit();
 
-    event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
-    event Withdraw(address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+    event Deposit(
+        address indexed caller,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
+    );
+    event Withdraw(
+        address indexed caller,
+        address indexed receiver,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
+    );
     event FeesCollected(address indexed treasury, uint256 amount);
 
-    IERC20  public immutable asset;
-    address public immutable lToken;    // LendingPool receipt token
-    address public immutable pool;      // LendingPool address
-    address public            treasury;
-    uint256 public            managementFeeBps; // e.g. 200 = 2%
-    uint256 public            maxDeposit_;      // 0 = unlimited
+    IERC20 public immutable asset;
+    address public immutable lToken; // LendingPool receipt token
+    address public immutable pool; // LendingPool address
+    address public treasury;
+    uint256 public managementFeeBps; // e.g. 200 = 2%
+    uint256 public maxDeposit_; // 0 = unlimited
 
     constructor(
         address _asset,
@@ -52,16 +67,16 @@ contract YieldVault is ERC20, AccessControl, ReentrancyGuard {
         string memory name,
         string memory symbol
     ) ERC20(name, symbol) {
-        if (_asset    == address(0)) revert YieldVault__ZeroAddress();
-        if (_lToken   == address(0)) revert YieldVault__ZeroAddress();
-        if (_pool     == address(0)) revert YieldVault__ZeroAddress();
+        if (_asset == address(0)) revert YieldVault__ZeroAddress();
+        if (_lToken == address(0)) revert YieldVault__ZeroAddress();
+        if (_pool == address(0)) revert YieldVault__ZeroAddress();
         if (_treasury == address(0)) revert YieldVault__ZeroAddress();
-        if (admin     == address(0)) revert YieldVault__ZeroAddress();
+        if (admin == address(0)) revert YieldVault__ZeroAddress();
 
-        asset           = IERC20(_asset);
-        lToken          = _lToken;
-        pool            = _pool;
-        treasury        = _treasury;
+        asset = IERC20(_asset);
+        lToken = _lToken;
+        pool = _pool;
+        treasury = _treasury;
         managementFeeBps = 200; // 2% default
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -116,12 +131,14 @@ contract YieldVault is ERC20, AccessControl, ReentrancyGuard {
      * @param assets  Amount of underlying to deposit
      * @param receiver  Who receives the vault shares
      */
-    function deposit(uint256 assets, address receiver)
-        external nonReentrant returns (uint256 shares)
-    {
-        if (assets == 0)   revert YieldVault__ZeroAmount();
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) external nonReentrant returns (uint256 shares) {
+        if (assets == 0) revert YieldVault__ZeroAmount();
         if (receiver == address(0)) revert YieldVault__ZeroAddress();
-        if (maxDeposit_ > 0 && assets > maxDeposit_) revert YieldVault__ExceedsMaxDeposit();
+        if (maxDeposit_ > 0 && assets > maxDeposit_)
+            revert YieldVault__ExceedsMaxDeposit();
 
         shares = convertToShares(assets);
 
@@ -130,8 +147,12 @@ contract YieldVault is ERC20, AccessControl, ReentrancyGuard {
 
         // Deposit into LendingPool to get lTokens
         asset.approve(pool, assets);
-        (bool ok,) = pool.call(
-            abi.encodeWithSignature("deposit(address,uint256)", address(asset), assets)
+        (bool ok, ) = pool.call(
+            abi.encodeWithSignature(
+                "deposit(address,uint256)",
+                address(asset),
+                assets
+            )
         );
         require(ok, "YieldVault: pool deposit failed");
 
@@ -147,10 +168,12 @@ contract YieldVault is ERC20, AccessControl, ReentrancyGuard {
      * @param receiver  Who receives the underlying
      * @param owner     Who owns the shares
      */
-    function redeem(uint256 shares, address receiver, address owner)
-        external nonReentrant returns (uint256 assets)
-    {
-        if (shares == 0)   revert YieldVault__ZeroAmount();
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) external nonReentrant returns (uint256 assets) {
+        if (shares == 0) revert YieldVault__ZeroAmount();
         if (receiver == address(0)) revert YieldVault__ZeroAddress();
         if (balanceOf(owner) < shares) revert YieldVault__InsufficientShares();
 
@@ -164,8 +187,12 @@ contract YieldVault is ERC20, AccessControl, ReentrancyGuard {
         _burn(owner, shares);
 
         // Withdraw from LendingPool
-        (bool ok,) = pool.call(
-            abi.encodeWithSignature("withdraw(address,uint256)", address(asset), assets)
+        (bool ok, ) = pool.call(
+            abi.encodeWithSignature(
+                "withdraw(address,uint256)",
+                address(asset),
+                assets
+            )
         );
         require(ok, "YieldVault: pool withdraw failed");
 
