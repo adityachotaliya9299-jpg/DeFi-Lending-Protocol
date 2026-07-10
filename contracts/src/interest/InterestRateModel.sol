@@ -8,7 +8,7 @@ import {PercentageMath} from "../math/PercentageMath.sol";
 
 /**
  * @title  InterestRateModel
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Two-slope (kinked) interest rate model identical in design to Aave v2/v3.
  *
  * ─── How the curve works ────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ contract InterestRateModel is IInterestRateModel, Ownable {
     uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     /// @dev Maximum allowed APR in RAY (1000% — safety cap).
-    uint256 public constant MAX_RATE_RAY = 1_000 * RAY / 100;
+    uint256 public constant MAX_RATE_RAY = (1_000 * RAY) / 100;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Rate parameters (stored as annual rates in RAY)
@@ -145,12 +145,10 @@ contract InterestRateModel is IInterestRateModel, Ownable {
      *
      *       perSecondRate = annualRate / SECONDS_PER_YEAR
      */
-    function calculateBorrowRate(uint256 totalLiquidity, uint256 totalBorrows)
-        external
-        view
-        override
-        returns (uint256 borrowRateRay)
-    {
+    function calculateBorrowRate(
+        uint256 totalLiquidity,
+        uint256 totalBorrows
+    ) external view override returns (uint256 borrowRateRay) {
         uint256 utilization = _utilization(totalLiquidity, totalBorrows);
         return _borrowRateFromUtilization(utilization);
     }
@@ -170,29 +168,27 @@ contract InterestRateModel is IInterestRateModel, Ownable {
     ) external view override returns (uint256 supplyRateRay) {
         if (totalLiquidity == 0 || totalBorrows == 0) return 0;
 
-        uint256 utilization  = _utilization(totalLiquidity, totalBorrows);
-        uint256 borrowRate   = _borrowRateFromUtilization(utilization);
+        uint256 utilization = _utilization(totalLiquidity, totalBorrows);
+        uint256 borrowRate = _borrowRateFromUtilization(utilization);
 
         // supplyRate = borrowRate * U * (1 - reserveFactor)
         // Step 1: borrowRate * U  (both in RAY → rayMul)
-        uint256 grossSupply  = borrowRate.rayMul(utilization);
+        uint256 grossSupply = borrowRate.rayMul(utilization);
 
         // Step 2: apply (1 - reserveFactor) reduction using percentMul
         // (1 - reserveFactor) in bps = PERCENTAGE_FACTOR - reserveFactor
-        uint256 lenderShare  = PercentageMath.PERCENTAGE_FACTOR - reserveFactor;
+        uint256 lenderShare = PercentageMath.PERCENTAGE_FACTOR - reserveFactor;
 
-        supplyRateRay        = grossSupply.percentMul(lenderShare);
+        supplyRateRay = grossSupply.percentMul(lenderShare);
     }
 
     /**
      * @inheritdoc IInterestRateModel
      */
-    function getUtilizationRate(uint256 totalLiquidity, uint256 totalBorrows)
-        external
-        pure
-        override
-        returns (uint256 utilizationRay)
-    {
+    function getUtilizationRate(
+        uint256 totalLiquidity,
+        uint256 totalBorrows
+    ) external pure override returns (uint256 utilizationRay) {
         return _utilization(totalLiquidity, totalBorrows);
     }
 
@@ -212,20 +208,24 @@ contract InterestRateModel is IInterestRateModel, Ownable {
         uint256 totalLiquidity,
         uint256 totalBorrows,
         uint256 reserveFactor
-    ) external view returns (
-        uint256 utilizationRay,
-        uint256 annualBorrowRate,
-        uint256 annualSupplyRate
-    ) {
-        utilizationRay   = _utilization(totalLiquidity, totalBorrows);
-        uint256 perSec   = _borrowRateFromUtilization(utilizationRay);
+    )
+        external
+        view
+        returns (
+            uint256 utilizationRay,
+            uint256 annualBorrowRate,
+            uint256 annualSupplyRate
+        )
+    {
+        utilizationRay = _utilization(totalLiquidity, totalBorrows);
+        uint256 perSec = _borrowRateFromUtilization(utilizationRay);
 
         // Convert per-second rate back to annual for display
         annualBorrowRate = perSec * SECONDS_PER_YEAR;
 
-        uint256 grossSupply  = perSec.rayMul(utilizationRay) * SECONDS_PER_YEAR;
-        uint256 lenderShare  = PercentageMath.PERCENTAGE_FACTOR - reserveFactor;
-        annualSupplyRate     = grossSupply.percentMul(lenderShare);
+        uint256 grossSupply = perSec.rayMul(utilizationRay) * SECONDS_PER_YEAR;
+        uint256 lenderShare = PercentageMath.PERCENTAGE_FACTOR - reserveFactor;
+        annualSupplyRate = grossSupply.percentMul(lenderShare);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -237,26 +237,22 @@ contract InterestRateModel is IInterestRateModel, Ownable {
      *      Returns 0 when liquidity is 0 (empty pool).
      *      Caps at RAY (100%) if borrows somehow exceed liquidity.
      */
-    function _utilization(uint256 totalLiquidity, uint256 totalBorrows)
-        internal
-        pure
-        returns (uint256)
-    {
+    function _utilization(
+        uint256 totalLiquidity,
+        uint256 totalBorrows
+    ) internal pure returns (uint256) {
         if (totalLiquidity == 0) return 0;
         if (totalBorrows >= totalLiquidity) return RAY; // 100% — capped
 
-        
         return WadRayMath.rayDiv(totalBorrows, totalLiquidity);
     }
 
     /**
      * @dev Applies the two-slope formula and converts annual rate → per-second.
      */
-    function _borrowRateFromUtilization(uint256 utilizationRay)
-        internal
-        view
-        returns (uint256 perSecondRay)
-    {
+    function _borrowRateFromUtilization(
+        uint256 utilizationRay
+    ) internal view returns (uint256 perSecondRay) {
         uint256 annualRay;
 
         if (utilizationRay <= optimalUtilizationRay) {
@@ -272,7 +268,10 @@ contract InterestRateModel is IInterestRateModel, Ownable {
             // ── Above kink ───────────────────────────────────────────────────
             // excess = (U - Uoptimal) / (1 - Uoptimal)
             uint256 excessUtilization = utilizationRay - optimalUtilizationRay;
-            uint256 excessRatio = WadRayMath.rayDiv(excessUtilization, _excessUtilizationRay);
+            uint256 excessRatio = WadRayMath.rayDiv(
+                excessUtilization,
+                _excessUtilizationRay
+            );
 
             uint256 slope2Contribution = slopeTwoRay.rayMul(excessRatio);
             annualRay = baseRateRay + slopeOneRay + slope2Contribution;
@@ -293,23 +292,28 @@ contract InterestRateModel is IInterestRateModel, Ownable {
         uint256 optimalUtil
     ) internal {
         // Validate optimalUtil: must be in (0, 100%)
-        require(optimalUtil > 0 && optimalUtil < PercentageMath.PERCENTAGE_FACTOR,
-            "IRM: invalid optimalUtil");
+        require(
+            optimalUtil > 0 && optimalUtil < PercentageMath.PERCENTAGE_FACTOR,
+            "IRM: invalid optimalUtil"
+        );
 
         // Convert bps → RAY: bps * RAY / PERCENTAGE_FACTOR
-        uint256 base    = bpsToRay(baseRate);
-        uint256 slope1  = bpsToRay(slopeOne);
-        uint256 slope2  = bpsToRay(slopeTwo);
+        uint256 base = bpsToRay(baseRate);
+        uint256 slope1 = bpsToRay(slopeOne);
+        uint256 slope2 = bpsToRay(slopeTwo);
         uint256 optimal = bpsToRay(optimalUtil);
 
         // Cap each rate at MAX_RATE_RAY
-        if (base   > MAX_RATE_RAY) revert InterestRateModel__InvalidRate(base,   MAX_RATE_RAY);
-        if (slope1 > MAX_RATE_RAY) revert InterestRateModel__InvalidRate(slope1, MAX_RATE_RAY);
-        if (slope2 > MAX_RATE_RAY) revert InterestRateModel__InvalidRate(slope2, MAX_RATE_RAY);
+        if (base > MAX_RATE_RAY)
+            revert InterestRateModel__InvalidRate(base, MAX_RATE_RAY);
+        if (slope1 > MAX_RATE_RAY)
+            revert InterestRateModel__InvalidRate(slope1, MAX_RATE_RAY);
+        if (slope2 > MAX_RATE_RAY)
+            revert InterestRateModel__InvalidRate(slope2, MAX_RATE_RAY);
 
-        baseRateRay           = base;
-        slopeOneRay           = slope1;
-        slopeTwoRay           = slope2;
+        baseRateRay = base;
+        slopeOneRay = slope1;
+        slopeTwoRay = slope2;
         optimalUtilizationRay = optimal;
         _excessUtilizationRay = RAY - optimal; // 1 - Uoptimal
 
