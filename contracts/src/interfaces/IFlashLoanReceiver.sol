@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /**
  * @title  IFlashLoanReceiver
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Implement this interface to receive flash loans from LendingPool.
  *
  * Your contract must:
