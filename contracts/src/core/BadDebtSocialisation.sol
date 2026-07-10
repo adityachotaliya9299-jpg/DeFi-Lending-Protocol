@@ -6,7 +6,7 @@ import {WadRayMath} from "../math/WadRayMath.sol";
 
 /**
  * @title BadDebtSocialisation
- * @author Aditya Chotaliya [https://adityachotaliya.vercel.app/]
+ * @author Aditya Chotaliya [https://adityachotaliya.xyz/]
  * @notice Handles bad debt when collateral < debt after liquidation
  *
  * Key design:
@@ -23,7 +23,7 @@ contract BadDebtSocialisation is AccessControl {
     using WadRayMath for uint256;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant POOL_ROLE  = keccak256("POOL_ROLE");
+    bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
 
     uint256 private constant RAY = 1e27;
 
@@ -42,10 +42,7 @@ contract BadDebtSocialisation is AccessControl {
         uint256 newLiquidityIndex
     );
 
-    event BadDebtRecorded(
-        address indexed asset,
-        uint256 cumulative
-    );
+    event BadDebtRecorded(address indexed asset, uint256 cumulative);
 
     // ── Storage ───────────────────────────────────────────────────────────────
 
@@ -57,7 +54,7 @@ contract BadDebtSocialisation is AccessControl {
 
     constructor(address admin, address pool) {
         if (admin == address(0)) revert BadDebtSocialisation__ZeroAddress();
-        if (pool  == address(0)) revert BadDebtSocialisation__ZeroAddress();
+        if (pool == address(0)) revert BadDebtSocialisation__ZeroAddress();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(POOL_ROLE, pool);
@@ -86,23 +83,34 @@ contract BadDebtSocialisation is AccessControl {
         uint256 badDebtAmount,
         uint256 totalDeposits,
         uint256 currentIndex
-    ) external onlyRole(POOL_ROLE) returns (uint256 indexReduction, uint256 newIndex) {
-        if (badDebtAmount  == 0) revert BadDebtSocialisation__ZeroDebt();
-        if (totalDeposits  == 0) revert BadDebtSocialisation__ZeroDeposits();
+    )
+        external
+        onlyRole(POOL_ROLE)
+        returns (uint256 indexReduction, uint256 newIndex)
+    {
+        if (badDebtAmount == 0) revert BadDebtSocialisation__ZeroDebt();
+        if (totalDeposits == 0) revert BadDebtSocialisation__ZeroDeposits();
 
         // indexReduction = badDebt * currentIndex / totalDeposits
         // This pro-rates the loss across all depositors via their scaled balances
         indexReduction = (badDebtAmount * currentIndex) / totalDeposits;
 
-        if (indexReduction >= currentIndex) revert BadDebtSocialisation__IndexWouldBeZero();
+        if (indexReduction >= currentIndex)
+            revert BadDebtSocialisation__IndexWouldBeZero();
 
         newIndex = currentIndex - indexReduction;
 
         // Record for analytics
-        cumulativeBadDebt[asset]  += badDebtAmount;
+        cumulativeBadDebt[asset] += badDebtAmount;
         socialisationCount[asset] += 1;
 
-        emit BadDebtSocialised(asset, borrower, badDebtAmount, indexReduction, newIndex);
+        emit BadDebtSocialised(
+            asset,
+            borrower,
+            badDebtAmount,
+            indexReduction,
+            newIndex
+        );
         emit BadDebtRecorded(asset, cumulativeBadDebt[asset]);
     }
 
@@ -120,7 +128,9 @@ contract BadDebtSocialisation is AccessControl {
     ) external pure returns (uint256 indexReduction, uint256 newIndex) {
         if (totalDeposits == 0) return (0, currentIndex);
         indexReduction = (badDebtAmount * currentIndex) / totalDeposits;
-        newIndex = indexReduction >= currentIndex ? 0 : currentIndex - indexReduction;
+        newIndex = indexReduction >= currentIndex
+            ? 0
+            : currentIndex - indexReduction;
     }
 
     /**
@@ -139,10 +149,9 @@ contract BadDebtSocialisation is AccessControl {
     /**
      * @notice Get analytics for an asset
      */
-    function getAssetStats(address asset)
-        external view
-        returns (uint256 cumulative, uint256 count)
-    {
+    function getAssetStats(
+        address asset
+    ) external view returns (uint256 cumulative, uint256 count) {
         return (cumulativeBadDebt[asset], socialisationCount[asset]);
     }
 }
