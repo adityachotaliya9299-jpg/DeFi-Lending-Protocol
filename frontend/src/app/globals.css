@@ -2,11 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ════════════════════════════════════════════════════════════════════════════
-   LENDFI — "DEEPFIELD" DESIGN SYSTEM
-   Bioluminescent abyss × precision finance.
-   Aurora spectrum: mint → azure → violet. Type: Syne / DM Sans / DM Mono.
-   ════════════════════════════════════════════════════════════════════════════ */
+
 
 :root {
   /* fonts are injected by next/font in layout.tsx */
@@ -32,10 +28,8 @@
   --radius-lg: 18px;
   --radius-xl: 24px;
   --transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
-}
 
-/* ── Dark (primary) ─────────────────────────────────────────────────────────── */
-:root, [data-theme="dark"] {
+  /* ── Dark Theme (Forced Default) ─────────────────────────────────────────── */
   --bg-deep:  #02040a;
   --bg-base:  #050912;
   --bg-elev:  #0b1322;
@@ -51,11 +45,6 @@
   --text-muted:     #55658a;
 
   --ink-on-accent: #041018;
-
-  --mint:   #46f5c9;
-  --azure:  #58a8ff;
-  --violet: #9d7bff;
-  --aurora: linear-gradient(100deg, var(--mint) 0%, var(--azure) 52%, var(--violet) 100%);
 
   --glow-mint:   0 0 28px rgba(70, 245, 201, 0.30);
   --glow-violet: 0 0 28px rgba(157, 123, 255, 0.28);
@@ -82,55 +71,6 @@
   --shadow-glow: 0 0 40px rgba(70,245,201,0.08);
 
   color-scheme: dark;
-}
-
-/* ── Light ──────────────────────────────────────────────────────────────────── */
-[data-theme="light"] {
-  --bg-deep:  #e9eef8;
-  --bg-base:  #f2f5fc;
-  --bg-elev:  #ffffff;
-  --bg-card:  rgba(255, 255, 255, 0.80);
-  --bg-glass: rgba(255, 255, 255, 0.62);
-  --bg-input: rgba(228, 235, 248, 0.9);
-
-  --border:        rgba(30, 60, 120, 0.10);
-  --border-strong: rgba(30, 60, 120, 0.22);
-
-  --text-primary:   #0b1530;
-  --text-secondary: #45557a;
-  --text-muted:     #7d8cab;
-
-  --ink-on-accent: #ffffff;
-
-  --mint:   #009e7d;
-  --azure:  #2f7ce8;
-  --violet: #7b58e8;
-  --aurora: linear-gradient(100deg, #00b38b 0%, #2f7ce8 52%, #7b58e8 100%);
-
-  --glow-mint:   0 6px 24px rgba(0, 158, 125, 0.25);
-  --glow-violet: 0 6px 24px rgba(123, 88, 232, 0.22);
-  --shadow-card: 0 18px 44px -20px rgba(20, 40, 90, 0.25);
-
-  --success: #0a9e72;
-  --danger:  #e0455c;
-  --warning: #d98a1f;
-  --emerald: #0a9e72;
-  --red:     #e0455c;
-
-  --cyan:      var(--mint);
-  --cyan-dim:  rgba(0,158,125,0.12);
-  --cyan-glow: rgba(0,158,125,0.35);
-  --bg-surface: #f8fafc;
-  --bg-card-hover: #eef2fa;
-  --border-accent: rgba(0,158,125,0.35);
-  --input-bg: var(--bg-input);
-  --input-bg-subtle: rgba(0,0,0,0.05);
-  --surface-overlay: rgba(10,30,80,0.05);
-  --surface-overlay-subtle: rgba(10,30,80,0.03);
-  --bg-inset: rgba(10,30,80,0.06);
-  --shadow-glow: 0 0 40px rgba(0,158,125,0.08);
-
-  color-scheme: light;
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────────── */
