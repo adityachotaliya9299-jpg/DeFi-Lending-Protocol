@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useTheme } from "@/components/ThemeProvider";
 import { Logo } from "@/components/brand/Logo";
 
 /* ── Navigation model ───────────────────────────────────────────────────────── */
@@ -52,11 +51,8 @@ const GROUPS: NavGroup[] = [
 
 const ALL_ITEMS = [...DIRECT, ...GROUPS.flatMap(g => g.items)];
 
-
-
 export function Navbar() {
   const pathname = usePathname();
-  const { theme, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -144,9 +140,9 @@ export function Navbar() {
           </nav>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div className="hide-m">
-            <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
-          </div>
+            <div className="hide-m">
+              <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
+            </div>
             <button onClick={() => setMobileOpen(v => !v)}
               className={`lf-burger show-m ${mobileOpen ? "open" : ""}`} aria-label="Menu">
               <span /><span /><span />
