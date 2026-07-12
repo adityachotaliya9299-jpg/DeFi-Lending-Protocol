@@ -5,471 +5,341 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useTheme } from "@/components/ThemeProvider";
+import { Logo } from "@/components/brand/Logo";
+
+/* ── Navigation model ───────────────────────────────────────────────────────── */
+
+type NavItem = { href: string; label: string; desc?: string; glyph: string };
+type NavGroup = { label: string; items: NavItem[] };
+
+const DIRECT: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", glyph: "◈" },
+  { href: "/markets",   label: "Markets",   glyph: "◎" },
+];
+
+const GROUPS: NavGroup[] = [
+  {
+    label: "Earn",
+    items: [
+      { href: "/yield",    label: "Yield Vault",    desc: "ERC-4626 auto-compounding USDC", glyph: "✦" },
+      { href: "/tranches", label: "Tranches",       desc: "Senior / Junior structured yield", glyph: "◪" },
+      { href: "/points",   label: "Points",         desc: "Earn protocol points for activity", glyph: "❖" },
+      { href: "/vault",    label: "pUSD Vault",     desc: "Mint the protocol stablecoin", glyph: "◍" },
+    ],
+  },
+  {
+    label: "Trade",
+    items: [
+      { href: "/leverage",  label: "Leverage",       desc: "Loop up to 4× in one transaction", glyph: "⟠" },
+      { href: "/swap",      label: "Rate Swap",      desc: "Swap variable for fixed rates", glyph: "⇄" },
+      { href: "/flashloan", label: "Flash Loans",    desc: "Uncollateralised, 0.09% fee", glyph: "⌁" },
+      { href: "/nft",       label: "NFT Collateral", desc: "Borrow against ERC-721 floors", glyph: "◨" },
+    ],
+  },
+  {
+    label: "Protocol",
+    items: [
+      { href: "/portfolio",  label: "Portfolio",  desc: "Your positions in detail", glyph: "▤" },
+      { href: "/analytics",  label: "Analytics",  desc: "TVL, rates and utilisation", glyph: "◫" },
+      { href: "/governance", label: "Governance", desc: "Vote on risk parameters", glyph: "⬢" },
+      { href: "/risk",       label: "Risk & Audit", desc: "Parameters and LFI-2026-01", glyph: "⛨" },
+      { href: "/liquidate",  label: "Liquidations", desc: "Scan and execute", glyph: "◬" },
+      { href: "/delegation", label: "Delegation",  desc: "Delegate borrowing power", glyph: "⧉" },
+      { href: "/modes",      label: "E-Mode",      desc: "Efficiency & isolation modes", glyph: "⚡" },
+    ],
+  },
+];
+
+const ALL_ITEMS = [...DIRECT, ...GROUPS.flatMap(g => g.items)];
 
 function SunIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
 }
-
 function MoonIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
 }
-
-const PRIMARY_NAV = [
-  { href: "/",          label: "Markets"   },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/vault",     label: "Vault"     },
-  { href: "/analytics", label: "Analytics" },
-];
-
-const MORE_NAV = [
-  { href: "/modes",      label: "E-Mode",      icon: "⚡" },
-  { href: "/risk",       label: "Risk",        icon: "🛡" },
-  { href: "/flashloan",  label: "Flash Loans", icon: "⌁" },
-  { href: "/liquidate",  label: "Liquidate",   icon: "⬡" },
-  { href: "/delegation", label: "Delegation",  icon: "🤝" },
-];
 
 export function Navbar() {
   const pathname = usePathname();
   const { theme, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen,   setMoreOpen]   = useState(false);
-  const [scrolled,   setScrolled]   = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => { 
-    setMobileOpen(false); 
-    setMoreOpen(false); 
-  }, [pathname]);
+  useEffect(() => { setMobileOpen(false); setOpenGroup(null); }, [pathname]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
+    const onClick = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenGroup(null);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Lock body scroll when mobile menu is open
   useEffect(() => {
-    if (mobileOpen) document.body.style.overflow = 'hidden';
-    else document.body.style.overflow = 'unset';
-    return () => { document.body.style.overflow = 'unset'; }
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
 
-  const isMoreActive = MORE_NAV.some(n => n.href === pathname);
+  const enterGroup = (label: string) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpenGroup(label);
+  };
+  const leaveGroup = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpenGroup(null), 180);
+  };
 
   return (
     <>
-      <header className={`nav-header ${scrolled ? "scrolled" : ""}`}>
-        <div className="nav-container">
-          
-          {/* Logo Section */}
-          <Link href="/" className="nav-logo">
-            <div className="logo-icon">⬡</div>
-            <div className="logo-text-group">
-              <span className="logo-title">LendFi</span>
-              <span className="logo-badge">SEPOLIA</span>
-            </div>
+      <header className={`lf-nav ${scrolled ? "scrolled" : ""}`}>
+        <div className="lf-nav-inner" ref={navRef}>
+          <Link href="/" style={{ textDecoration: "none" }} aria-label="LendFi home">
+            <Logo size={36} />
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="desktop-nav hide-mobile">
-            {PRIMARY_NAV.map(({ href, label }) => {
-              const active = pathname === href;
+          <nav className="lf-links hide-m">
+            {DIRECT.map(item => (
+              <Link key={item.href} href={item.href}
+                className={`lf-link ${pathname === item.href ? "active" : ""}`}>
+                {item.label}
+              </Link>
+            ))}
+            {GROUPS.map(group => {
+              const groupActive = group.items.some(i => i.href === pathname);
+              const open = openGroup === group.label;
               return (
-                <Link key={href} href={href} className={`nav-link ${active ? "active" : ""}`}>
-                  {label}
-                </Link>
+                <div key={group.label} className="lf-group"
+                  onMouseEnter={() => enterGroup(group.label)}
+                  onMouseLeave={leaveGroup}>
+                  <button
+                    className={`lf-link ${groupActive ? "active" : ""} ${open ? "open" : ""}`}
+                    onClick={() => setOpenGroup(open ? null : group.label)}>
+                    {group.label}
+                    <svg width="9" height="6" viewBox="0 0 9 6" style={{ transition: "transform .25s", transform: open ? "rotate(180deg)" : "none" }}>
+                      <path d="M1 1l3.5 3.5L8 1" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                  {open && (
+                    <div className="lf-dropdown">
+                      {group.items.map(item => (
+                        <Link key={item.href} href={item.href}
+                          className={`lf-drop-item ${pathname === item.href ? "active" : ""}`}>
+                          <span className="lf-drop-glyph">{item.glyph}</span>
+                          <span>
+                            <span className="lf-drop-label">{item.label}</span>
+                            {item.desc && <span className="lf-drop-desc">{item.desc}</span>}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               );
             })}
-
-            {/* Dropdown Menu */}
-            <div ref={moreRef} className="more-dropdown-container">
-              <button 
-                onClick={() => setMoreOpen(!moreOpen)}
-                className={`nav-link more-btn ${isMoreActive ? "active" : ""} ${moreOpen ? "open" : ""}`}
-              >
-                More
-                <span className="chevron">▼</span>
-              </button>
-
-              {moreOpen && (
-                <div className="dropdown-menu">
-                  {MORE_NAV.map(({ href, label, icon }) => {
-                    const active = pathname === href;
-                    return (
-                      <Link key={href} href={href} className={`dropdown-item ${active ? "active" : ""}`}>
-                        <span className="dropdown-icon">{icon}</span>
-                        <span className="dropdown-label">{label}</span>
-                        {active && <span className="active-dot" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </nav>
 
-          {/* Right Action Section */}
-          <div className="nav-actions">
-            <button onClick={toggle} className="theme-toggle hide-mobile" aria-label="Toggle Theme">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={toggle} className="lf-iconbtn hide-m" aria-label="Toggle theme">
               {theme === "dark" ? <SunIcon /> : <MoonIcon />}
             </button>
-            <div className="hide-mobile connect-wrapper">
+            <div className="hide-m">
               <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
             </div>
-
-            {/* Mobile Hamburger */}
-            <button 
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className={`hamburger show-mobile ${mobileOpen ? "open" : ""}`}
-              aria-label="Toggle Menu"
-            >
-              <span className="line top"></span>
-              <span className="line middle"></span>
-              <span className="line bottom"></span>
+            <button onClick={() => setMobileOpen(v => !v)}
+              className={`lf-burger show-m ${mobileOpen ? "open" : ""}`} aria-label="Menu">
+              <span /><span /><span />
             </button>
           </div>
         </div>
       </header>
 
-      {pathname !== "/" && <div style={{ height: "104px" }} />}
-      
-      {/* Mobile Slide-over Menu */}
-      <div className={`mobile-menu-overlay ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
-      <aside className={`mobile-menu ${mobileOpen ? "open" : ""}`}>
-        <div className="mobile-header">
-          <span className="logo-title" style={{ fontSize: 24 }}>LendFi</span>
-          <button onClick={() => setMobileOpen(false)} className="close-btn">✕</button>
-        </div>
+      {/* spacer for fixed nav on inner pages */}
+      {pathname !== "/" && <div style={{ height: 96 }} />}
 
-        <div className="mobile-nav-group">
-          <p className="mobile-group-title">Main</p>
-          {PRIMARY_NAV.map(({ href, label }) => (
-            <Link key={href} href={href} className={`mobile-link ${pathname === href ? "active" : ""}`}>
-              {label}
+      {/* mobile menu */}
+      <div className={`lf-mob-overlay ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
+      <aside className={`lf-mob ${mobileOpen ? "open" : ""}`}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 }}>
+          <Logo size={32} />
+          <button onClick={() => setMobileOpen(false)} className="lf-iconbtn" aria-label="Close">✕</button>
+        </div>
+        <div className="lf-mob-group">
+          {DIRECT.map(i => (
+            <Link key={i.href} href={i.href} className={`lf-mob-link ${pathname === i.href ? "active" : ""}`}>
+              <span className="lf-drop-glyph">{i.glyph}</span>{i.label}
             </Link>
           ))}
         </div>
-
-        <div className="mobile-nav-group">
-          <p className="mobile-group-title">More</p>
-          {MORE_NAV.map(({ href, label, icon }) => (
-            <Link key={href} href={href} className={`mobile-link ${pathname === href ? "active" : ""}`}>
-              <span className="mobile-link-icon">{icon}</span>
-              {label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="mobile-connect-wrapper">
+        {GROUPS.map(g => (
+          <div key={g.label} className="lf-mob-group">
+            <p className="lf-mob-title">{g.label}</p>
+            {g.items.map(i => (
+              <Link key={i.href} href={i.href} className={`lf-mob-link ${pathname === i.href ? "active" : ""}`}>
+                <span className="lf-drop-glyph">{i.glyph}</span>{i.label}
+              </Link>
+            ))}
+          </div>
+        ))}
+        <div style={{ marginTop: "auto", paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <button onClick={toggle} className="btn btn-ghost btn-sm">
+            {theme === "dark" ? "Light theme" : "Dark theme"}
+          </button>
           <ConnectButton accountStatus="full" chainStatus="full" showBalance={false} />
         </div>
       </aside>
 
-      {/* --- CSS Styles --- */}
       <style>{`
-        /* Header Container */
-        .nav-header {
-          position: fixed;
-          top: 0; left: 0; right: 0;
-          z-index: 50;
-          padding: 20px 24px;
-          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        .lf-nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+          padding: 18px 22px;
+          transition: padding 0.4s var(--ease-out);
         }
-        .nav-header.scrolled {
-          padding: 12px 24px;
-        }
-        
-        .nav-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          height: 64px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 16px;
-          border-radius: 20px;
-          background: transparent;
+        .lf-nav.scrolled { padding: 10px 22px; }
+        .lf-nav-inner {
+          max-width: 1280px; margin: 0 auto;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 18px;
+          padding: 10px 18px;
+          border-radius: 18px;
           border: 1px solid transparent;
-          transition: all 0.4s ease;
+          transition: all 0.4s var(--ease-out);
         }
-        
-        .nav-header.scrolled .nav-container {
-          background: var(--bg-card); /* Theme aware */
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid var(--border);
-          box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
+        .lf-nav.scrolled .lf-nav-inner {
+          background: var(--bg-glass);
+          border-color: var(--border-strong);
+          backdrop-filter: blur(22px);
+          -webkit-backdrop-filter: blur(22px);
+          box-shadow: 0 14px 40px -18px rgba(0,0,0,.6);
         }
-
-        /* Logo */
-        .nav-logo {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          text-decoration: none;
-        }
-        .logo-icon {
-          width: 38px; height: 38px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, var(--cyan), #818cf8);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 18px; color: #000; font-weight: 800;
-          box-shadow: 0 4px 12px rgba(34, 211, 238, 0.3);
-        }
-        .logo-text-group {
-          display: flex; flex-direction: column; justify-content: center;
-        }
-        .logo-title {
+        .lf-links { display: flex; align-items: center; gap: 2px; }
+        .lf-link {
+          display: inline-flex; align-items: center; gap: 6px;
           font-family: var(--font-display);
-          font-weight: 800; font-size: 18px;
-          color: var(--text-primary);
-          line-height: 1.1;
-        }
-        .logo-badge {
-          font-family: var(--font-mono);
-          font-size: 10px; font-weight: 600;
-          color: var(--cyan); letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        /* Desktop Nav */
-        .desktop-nav {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          background: var(--bg-base); /* Theme aware */
-          border: 1px solid var(--border);
-          border-radius: 100px;
-          padding: 6px;
-        }
-        .nav-link {
+          font-size: 14px; font-weight: 600;
+          color: var(--text-secondary);
           text-decoration: none;
-          padding: 8px 18px;
-          border-radius: 100px;
-          font-family: var(--font-display);
-          font-weight: 500; font-size: 14px;
-          color: var(--text-secondary);
-          transition: all 0.2s ease;
-          cursor: pointer;
-          background: transparent;
-          border: none;
-        }
-        .nav-link:hover {
-          color: var(--text-primary);
-          background: var(--bg-card);
-        }
-        .nav-link.active {
-          background: var(--cyan);
-          color: #030712;
-          font-weight: 700;
-          box-shadow: 0 0 16px rgba(34, 211, 238, 0.4);
-        }
-
-        /* Dropdown */
-        .more-dropdown-container {
-          position: relative;
-        }
-        .more-btn {
-          display: flex; align-items: center; gap: 6px;
-        }
-        .more-btn.open {
-          background: var(--bg-card);
-          color: var(--text-primary);
-        }
-        .chevron {
-          font-size: 9px;
-          opacity: 0.6;
-          transition: transform 0.3s ease;
-        }
-        .more-btn.open .chevron {
-          transform: rotate(180deg);
-        }
-        .dropdown-menu {
-          position: absolute;
-          top: calc(100% + 12px);
-          right: 0;
-          background: var(--bg-card); /* Theme aware */
-          backdrop-filter: blur(16px);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 8px;
-          min-width: 200px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-          animation: dropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          transform-origin: top center;
-        }
-        .dropdown-item {
-          text-decoration: none;
-          display: flex; align-items: center; gap: 12px;
-          padding: 10px 14px;
-          border-radius: 10px;
-          color: var(--text-secondary);
-          font-family: var(--font-display);
-          font-size: 14px; font-weight: 500;
-          transition: all 0.2s ease;
-        }
-        .dropdown-item:hover {
-          background: var(--bg-base);
-          color: var(--text-primary);
-        }
-        .dropdown-item.active {
-          background: rgba(34, 211, 238, 0.1);
-          color: var(--cyan);
-          font-weight: 600;
-        }
-        .dropdown-icon {
-          font-size: 16px; width: 20px; text-align: center;
-        }
-        .active-dot {
-          margin-left: auto; width: 6px; height: 6px;
-          border-radius: 50%; background: var(--cyan);
-          box-shadow: 0 0 8px var(--cyan);
-        }
-
-        /* Actions */
-        .nav-actions {
-          display: flex; align-items: center; gap: 12px;
-        }
-        .theme-toggle, .hamburger {
-          width: 40px; height: 40px;
-          border-radius: 50%;
-          border: 1px solid var(--border);
-          background: var(--bg-base); /* Theme aware */
-          cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          color: var(--text-secondary);
-          transition: all 0.2s ease;
-        }
-        .hamburger {
-          border-radius: 12px;
-          flex-direction: column;
-          gap: 5px;
-        }
-        .theme-toggle:hover, .hamburger:hover {
-          color: var(--text-primary);
-          background: var(--bg-card);
-        }
-        .theme-toggle:hover {
-          transform: rotate(15deg);
-        }
-        .connect-wrapper {
-          transition: transform 0.2s ease;
-        }
-        .connect-wrapper:hover {
-          transform: translateY(-1px);
-        }
-
-        /* Hamburger */
-        .hamburger .line {
-          display: block; width: 18px; height: 2px;
-          background: var(--text-primary);
-          border-radius: 2px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .hamburger.open .top { transform: translateY(7px) rotate(45deg); }
-        .hamburger.open .middle { opacity: 0; transform: translateX(10px); }
-        .hamburger.open .bottom { transform: translateY(-7px) rotate(-45deg); }
-
-        /* Mobile Menu */
-        .mobile-menu-overlay {
-          position: fixed; inset: 0;
-          background: rgba(0, 0, 0, 0.5); /* Neutral overlay */
-          backdrop-filter: blur(4px);
-          z-index: 90;
-          opacity: 0; pointer-events: none;
-          transition: opacity 0.3s ease;
-        }
-        .mobile-menu-overlay.open {
-          opacity: 1; pointer-events: auto;
-        }
-        
-        .mobile-menu {
-          position: fixed; top: 0; bottom: 0; right: 0;
-          width: 100%; max-width: 340px;
-          background: var(--bg-card); /* Theme aware */
-          border-left: 1px solid var(--border);
-          z-index: 100;
-          padding: 32px 24px;
-          display: flex; flex-direction: column;
-          /* FIX: Translated past 100% and completely hidden to remove shadow bleed */
-          transform: translateX(120%);
-          visibility: hidden; 
-          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s;
-          overflow-y: auto;
-          box-shadow: none;
-        }
-        .mobile-menu.open {
-          transform: translateX(0);
-          visibility: visible;
-          box-shadow: -20px 0 60px rgba(0,0,0,0.3);
-        }
-        .mobile-header {
-          display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: 40px;
-        }
-        .close-btn {
           background: none; border: none; cursor: pointer;
-          color: var(--text-secondary); font-size: 24px;
-          transition: color 0.2s;
+          padding: 9px 15px; border-radius: 100px;
+          transition: color .2s, background .2s;
         }
-        .close-btn:hover { color: var(--text-primary); }
-        
-        .mobile-nav-group { margin-bottom: 32px; display: flex; flex-direction: column; gap: 8px; }
-        .mobile-group-title {
-          font-family: var(--font-mono); font-size: 11px;
-          color: var(--text-muted); text-transform: uppercase;
-          letter-spacing: 0.1em; padding: 0 16px; margin-bottom: 8px;
+        .lf-link:hover, .lf-link.open { color: var(--text-primary); background: var(--surface-overlay); }
+        .lf-link.active {
+          color: var(--mint);
+          background: rgba(70,245,201,.09);
+          box-shadow: inset 0 0 0 1px rgba(70,245,201,.25);
         }
-        .mobile-link {
-          text-decoration: none; padding: 14px 16px;
-          border-radius: 14px; font-family: var(--font-display);
-          font-weight: 500; font-size: 16px;
-          color: var(--text-secondary);
+        .lf-group { position: relative; }
+        .lf-dropdown {
+          position: absolute; top: calc(100% + 14px); left: 50%;
+          transform: translateX(-50%);
+          min-width: 300px;
+          background: var(--bg-elev);
+          border: 1px solid var(--border-strong);
+          border-radius: 20px;
+          padding: 10px;
+          box-shadow: 0 30px 70px -20px rgba(0,0,0,.7), var(--glow-violet);
+          animation: navdrop .28s var(--ease-out) both;
+        }
+        @keyframes navdrop {
+          from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(.97); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        .lf-drop-item {
+          display: flex; align-items: flex-start; gap: 13px;
+          padding: 11px 13px; border-radius: 13px;
+          text-decoration: none;
+          transition: background .2s;
+        }
+        .lf-drop-item:hover { background: var(--surface-overlay); }
+        .lf-drop-item.active { background: rgba(70,245,201,.08); box-shadow: inset 0 0 0 1px rgba(70,245,201,.2); }
+        .lf-drop-glyph {
+          width: 30px; height: 30px; flex-shrink: 0;
+          display: inline-flex; align-items: center; justify-content: center;
+          border-radius: 9px;
+          background: var(--aurora-soft);
+          border: 1px solid var(--border-strong);
+          color: var(--mint);
+          font-size: 14px;
+        }
+        .lf-drop-label {
+          display: block;
+          font-family: var(--font-display); font-weight: 700; font-size: 13.5px;
+          color: var(--text-primary);
+        }
+        .lf-drop-desc { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+        .lf-iconbtn {
+          width: 38px; height: 38px; border-radius: 50%;
+          display: inline-flex; align-items: center; justify-content: center;
+          background: var(--bg-glass); border: 1px solid var(--border-strong);
+          color: var(--text-secondary); cursor: pointer;
+          transition: all .25s;
+          backdrop-filter: blur(10px);
+        }
+        .lf-iconbtn:hover { color: var(--mint); border-color: var(--mint); transform: rotate(12deg); }
+        .lf-burger {
+          width: 40px; height: 40px; border-radius: 12px;
+          display: none; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+          background: var(--bg-glass); border: 1px solid var(--border-strong);
+          cursor: pointer;
+        }
+        .lf-burger span {
+          width: 17px; height: 2px; border-radius: 2px;
+          background: var(--text-primary);
+          transition: all .3s var(--ease-out);
+        }
+        .lf-burger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .lf-burger.open span:nth-child(2) { opacity: 0; }
+        .lf-burger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+        .lf-mob-overlay {
+          position: fixed; inset: 0; z-index: 140;
+          background: rgba(2,4,10,.6); backdrop-filter: blur(5px);
+          opacity: 0; pointer-events: none; transition: opacity .3s;
+        }
+        .lf-mob-overlay.open { opacity: 1; pointer-events: auto; }
+        .lf-mob {
+          position: fixed; top: 0; right: 0; bottom: 0; z-index: 150;
+          width: min(340px, 88vw);
+          background: var(--bg-elev);
+          border-left: 1px solid var(--border-strong);
+          padding: 24px 22px 34px;
+          display: flex; flex-direction: column;
+          overflow-y: auto;
+          transform: translateX(110%); visibility: hidden;
+          transition: transform .45s var(--ease-out), visibility .45s;
+        }
+        .lf-mob.open { transform: none; visibility: visible; }
+        .lf-mob-group { margin-bottom: 18px; display: flex; flex-direction: column; gap: 3px; }
+        .lf-mob-title {
+          font-family: var(--font-mono); font-size: 10px; letter-spacing: .22em;
+          text-transform: uppercase; color: var(--text-muted);
+          margin: 8px 4px 6px;
+        }
+        .lf-mob-link {
           display: flex; align-items: center; gap: 12px;
-          transition: all 0.2s;
-          border: 1px solid transparent;
+          padding: 11px 12px; border-radius: 12px;
+          text-decoration: none;
+          font-family: var(--font-display); font-weight: 600; font-size: 15px;
+          color: var(--text-secondary);
+          transition: background .2s, color .2s;
         }
-        .mobile-link:hover {
-          background: var(--bg-base);
+        .lf-mob-link:hover { background: var(--surface-overlay); color: var(--text-primary); }
+        .lf-mob-link.active { color: var(--mint); background: rgba(70,245,201,.08); }
+        @media (max-width: 1060px) {
+          .hide-m { display: none !important; }
+          .show-m, .lf-burger { display: flex !important; }
         }
-        .mobile-link.active {
-          background: rgba(34, 211, 238, 0.08);
-          color: var(--cyan);
-          border-color: rgba(34, 211, 238, 0.2);
-          font-weight: 700;
-        }
-        .mobile-link-icon { font-size: 18px; }
-        .mobile-connect-wrapper { margin-top: auto; padding-top: 24px; }
-
-        /* Animations */
-        @keyframes dropIn {
-          from { opacity: 0; transform: translateY(-10px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        /* Utilities */
-        @media (max-width: 860px) {
-          .hide-mobile { display: none !important; }
-          .show-mobile { display: flex !important; }
-          .nav-header { padding: 16px; }
-          .nav-header.scrolled { padding: 8px 16px; }
-        }
-        @media (min-width: 861px) {
-          .show-mobile { display: none !important; }
-          .hide-mobile { display: flex !important; }
-          .mobile-menu { display: none !important; }
-          .mobile-menu-overlay { display: none !important; }
+        @media (min-width: 1061px) {
+          .show-m { display: none !important; }
         }
       `}</style>
     </>
