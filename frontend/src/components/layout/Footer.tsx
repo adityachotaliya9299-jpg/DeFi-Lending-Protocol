@@ -1,330 +1,127 @@
 "use client";
 
 import Link from "next/link";
+import { Logo, LogoMark } from "@/components/brand/Logo";
+import { CONTRACT_ADDRESSES, EXT_ADDRESSES, STABLECOIN_ADDRESSES } from "@/constants/addresses";
 
-const LINKS = {
-  Protocol: [
-    { label: "Markets", href: "/" },
+const NAV = {
+  Markets: [
     { label: "Dashboard", href: "/dashboard" },
+    { label: "Markets", href: "/markets" },
     { label: "Portfolio", href: "/portfolio" },
-    { label: "Liquidate", href: "/liquidate" },
+    { label: "Analytics", href: "/analytics" },
   ],
-  Contracts: [
-    {
-      label: "LendingPool",
-      href: "https://sepolia.etherscan.io/address/0xF4886e1Ab9b3EC821feB94eEf1C4Bf6bf0fa09A0",
-    },
-    {
-      label: "PriceOracle",
-      href: "https://sepolia.etherscan.io/address/0x746DE549Dea06A7871B4FBA32309DBA01D0A98bc",
-    },
-    {
-      label: "Governance",
-      href: "https://sepolia.etherscan.io/address/0xcDE9E0BAc0Bb74ADE45ea44B8b47eF684F045Ebc",
-    },
-    {
-      label: "Treasury",
-      href: "https://sepolia.etherscan.io/address/0x6636a50dde7eEfB90dc71b6E02C54CdabeAb6Ce3",
-    },
+  Earn: [
+    { label: "Yield Vault", href: "/yield" },
+    { label: "Tranches", href: "/tranches" },
+    { label: "Points", href: "/points" },
+    { label: "pUSD Vault", href: "/vault" },
   ],
-  Resources: [
-    { label: "GitHub", href: "https://github.com" },
-    { label: "Docs", href: "#" },
-    { label: "Audit Notes", href: "#" },
-    { label: "The Graph", href: "https://thegraph.com/studio" },
+  Trade: [
+    { label: "Leverage", href: "/leverage" },
+    { label: "Rate Swap", href: "/swap" },
+    { label: "Flash Loans", href: "/flashloan" },
+    { label: "NFT Collateral", href: "/nft" },
+  ],
+  Protocol: [
+    { label: "Governance", href: "/governance" },
+    { label: "Risk & Audit", href: "/risk" },
+    { label: "Liquidations", href: "/liquidate" },
+    { label: "Delegation", href: "/delegation" },
   ],
 };
 
-const STATS = [
-  { label: "Total Assets", value: "3" },
-  { label: "Network", value: "Sepolia" },
-  { label: "Tests", value: "381" },
-  { label: "Contracts", value: "10" },
+const DEPLOYED: { name: string; addr: string }[] = [
+  { name: "LendingPool",        addr: CONTRACT_ADDRESSES.LENDING_POOL },
+  { name: "CollateralManager",  addr: CONTRACT_ADDRESSES.COLLATERAL_MANAGER },
+  { name: "PriceOracle",        addr: CONTRACT_ADDRESSES.PRICE_ORACLE },
+  { name: "LiquidationEngine",  addr: CONTRACT_ADDRESSES.LIQUIDATION_ENGINE },
+  { name: "YieldVault",         addr: EXT_ADDRESSES.YIELD_VAULT },
+  { name: "LoopStrategy",       addr: EXT_ADDRESSES.LOOP_STRATEGY },
+  { name: "IRSwap",             addr: EXT_ADDRESSES.IRSWAP },
+  { name: "TrancheVault",       addr: EXT_ADDRESSES.TRANCHE_VAULT },
+  { name: "NFTCollateral",      addr: EXT_ADDRESSES.NFT_COLLATERAL },
+  { name: "RiskGovernance",     addr: EXT_ADDRESSES.RISK_GOVERNANCE },
+  { name: "pUSD",               addr: STABLECOIN_ADDRESSES.PUSD },
+  { name: "SecurityHardening",  addr: EXT_ADDRESSES.SECURITY_HARDENING },
 ];
 
 export function Footer() {
   return (
-    <footer className="relative mt-24">
-      {/* --- Footer Styles --- */}
-      <style>{`
-        .footer-glass {
-          background: var(--bg-card);
-          backdrop-filter: blur(20px);
-          border-top: 1px solid var(--border);
-        }
-        .footer-glow-line {
-          position: absolute;
-          top: 0; left: 50%;
-          transform: translateX(-50%);
-          width: 80%; max-width: 800px; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(34,211,238,0.4), transparent);
-          box-shadow: 0 0 20px rgba(34,211,238,0.5);
-        }
-        .stat-glass-pill {
-          background: var(--bg-base);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          transition: all 0.3s ease;
-        }
-        .stat-glass-pill:hover {
-          background: var(--bg-card);
-          border-color: rgba(34,211,238,0.4);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 20px rgba(34,211,238,0.1);
-        }
-        .footer-link {
-          color: var(--text-muted);
-          text-decoration: none;
-          transition: all 0.2s ease;
-          display: inline-flex;
-          align-items: center;
-        }
-        .footer-link:hover {
-          color: var(--cyan);
-          transform: translateX(4px);
-        }
-        .footer-micro-label {
-          font-family: var(--font-mono);
-          font-size: 11px;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-        }
-      `}</style>
-
-      <div className="footer-glass pt-12 pb-8 relative z-10">
-        <div className="footer-glow-line" />
-        <div className="mx-auto max-w-7xl px-6">
-          {/* ── Stats Row ── */}
-          <div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-12 mb-12"
-            style={{ borderBottom: "1px solid var(--border)" }}
-          >
-            {STATS.map(({ label, value }) => (
-              <div
-                key={label}
-                className="stat-glass-pill flex flex-col items-center justify-center py-6 px-4"
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.8rem",
-                    fontWeight: 700,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {value}
-                </span>
-                <span
-                  className="footer-micro-label mt-2"
-                  style={{ color: "var(--cyan)" }}
-                >
-                  {label}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Main Links Grid ── */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-10 pb-12">
-            {/* Brand Column */}
-            <div className="col-span-2">
-              <div className="flex items-center gap-3 mb-5">
-                <div
-                  className="h-10 w-10 flex items-center justify-center rounded-xl"
-                  style={{
-                    background: "linear-gradient(135deg, var(--cyan), #818cf8)",
-                    boxShadow: "0 4px 14px rgba(34,211,238,0.2)",
-                  }}
-                >
-                  <span className="text-slate-950 font-black text-lg">⬡</span>
-                </div>
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontWeight: 800,
-                    fontSize: 22,
-                    color: "var(--text-primary)",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  LendFi
-                </span>
-              </div>
-              <p
-                style={{
-                  fontSize: 14,
-                  color: "var(--text-muted)",
-                  lineHeight: 1.7,
-                  maxWidth: 280,
-                  marginBottom: 20,
-                }}
-              >
-                A production-grade DeFi lending protocol with Chainlink oracles,
-                two-slope interest model, and on-chain governance.
-              </p>
-
-              {/* Live Status Indicator */}
-              <div
-                className="inline-flex items-center gap-3 px-4 py-2 rounded-full border"
-                style={{
-                  background: "rgba(52,211,153,0.05)",
-                  borderColor: "rgba(52,211,153,0.2)",
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: "#34d399",
-                    boxShadow: "0 0 10px #34d399",
-                    animation: "blink 2s infinite",
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "#34d399",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  OPERATIONAL ON SEPOLIA
-                </span>
-              </div>
-            </div>
-
-            {/* Link Groups */}
-            {Object.entries(LINKS).map(([group, links]) => (
-              <div key={group} className="col-span-1">
-                <p
-                  className="footer-micro-label mb-6"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {group}
-                </p>
-                <ul className="space-y-4">
-                  {links.map(({ label, href }) => {
-                    const isExternal = href.startsWith("http");
-                    return (
-                      <li key={label}>
-                        <Link
-                          href={href}
-                          target={isExternal ? "_blank" : undefined}
-                          rel={isExternal ? "noopener noreferrer" : undefined}
-                          className="footer-link"
-                          style={{
-                            fontFamily: "var(--font-display)",
-                            fontSize: 14,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {label}
-                          {isExternal && (
-                            <span
-                              style={{
-                                opacity: 0.5,
-                                marginLeft: 6,
-                                fontSize: 12,
-                              }}
-                            >
-                              ↗
-                            </span>
-                          )}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Bottom Bar ── */}
-          <div
-            className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8"
-            style={{ borderTop: "1px solid var(--border)" }}
-          >
-            {/* Built by Signature */}
-            <p
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 13,
-                color: "var(--text-muted)",
-              }}
-            >
-              Built by{" "}
-              <a
-                href="https://adityachotaliya.xyz/"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 800,
-                  fontSize: 14,
-                  background:
-                    "linear-gradient(135deg, var(--cyan) 0%, #a78bfa 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  textDecoration: "none",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.filter = "brightness(1.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.filter = "none";
-                }}
-              >
-                Aditya Chotaliya
-              </a>
-            </p>
-
-            {/* Testnet Warning Badge */}
-            <div
-              className="flex items-center gap-3 px-4 py-2 rounded-xl border"
-              style={{
-                background: "rgba(245,158,11,0.05)",
-                borderColor: "rgba(245,158,11,0.2)",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>⚠️</span>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#f59e0b",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Testnet Only
-                </span>
-                <span
-                  className="hidden sm:block"
-                  style={{ color: "var(--border)" }}
-                >
-                  |
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  Not audited. Do not use real funds.
-                </span>
-              </div>
-            </div>
-          </div>
+    <footer style={{ position: "relative", zIndex: 1, marginTop: 40 }}>
+      {/* deployed contracts marquee */}
+      <div className="marquee" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "14px 0", background: "var(--bg-glass)", backdropFilter: "blur(12px)" }}>
+        <div className="marquee-track">
+          {[...DEPLOYED, ...DEPLOYED].map((c, i) => (
+            <a key={i}
+              href={`https://sepolia.etherscan.io/address/${c.addr}`}
+              target="_blank" rel="noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 9, textDecoration: "none", whiteSpace: "nowrap" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--mint)", boxShadow: "0 0 8px var(--mint)" }} />
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 12.5, color: "var(--text-secondary)" }}>{c.name}</span>
+              <span className="num" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                {c.addr.slice(0, 6)}…{c.addr.slice(-4)}
+              </span>
+            </a>
+          ))}
         </div>
       </div>
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "56px 24px 30px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr repeat(4, 1fr)", gap: 32 }} className="lf-foot-grid">
+          <div>
+            <Logo size={40} />
+            <p style={{ color: "var(--text-secondary)", fontSize: 13.5, maxWidth: 280, marginTop: 16, lineHeight: 1.7 }}>
+              A production-grade DeFi lending protocol built from scratch —
+              27 contracts, 670 passing tests, audited under LFI-2026-01.
+              Live on Sepolia.
+            </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
+              <span className="chip chip-mint">670 tests</span>
+              <span className="chip chip-azure">Sepolia</span>
+              <span className="chip chip-violet">Audited</span>
+            </div>
+          </div>
+          {Object.entries(NAV).map(([group, links]) => (
+            <div key={group}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 14 }}>
+                {group}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {links.map(l => (
+                  <Link key={l.href} href={l.href}
+                    style={{ textDecoration: "none", color: "var(--text-secondary)", fontSize: 13.5, transition: "color .2s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "var(--mint)")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text-secondary)")}>
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ borderTop: "1px solid var(--border)", marginTop: 44, paddingTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+            © 2026 LendFi Protocol · Built by{" "}
+            <a href="https://adityachotaliya.vercel.app/" target="_blank" rel="noreferrer" style={{ color: "var(--text-secondary)" }}>
+              Aditya Chotaliya
+            </a>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
+            <LogoMark size={16} glow={false} /> TESTNET DEPLOYMENT — NOT FINANCIAL ADVICE
+          </span>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .lf-foot-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+        @media (max-width: 540px) {
+          .lf-foot-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </footer>
   );
 }
